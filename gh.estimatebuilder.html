@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Good &amp; Handy — Estimate Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy:#1B3A6B; --blue:#2C5F9E; --sky:#D6E4F7; --green:#2a9d6e;
+  --gray:#f2f4f8; --line:#e0e5ef; --text:#1a1d2e; --muted:#6b7280;
+  --white:#fff; --accent:#e05c2a; --shadow:0 2px 16px rgba(27,58,107,.10);
+  --radius:12px; --tap:48px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);min-height:100vh;padding-bottom:200px}
+
+/* ── Header ── */
+.hdr{background:var(--navy);padding:16px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.2)}
+.hdr-title h1{font-family:'DM Serif Display',serif;color:#fff;font-size:1.35rem;line-height:1}
+.hdr-title p{color:#a8c0e8;font-size:0.72rem;margin-top:3px}
+.hdr-total{background:var(--green);color:#fff;border-radius:10px;padding:8px 16px;text-align:center;min-width:130px}
+.hdr-total .lbl{font-size:0.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;opacity:.85}
+.hdr-total .amt{font-family:'DM Serif Display',serif;font-size:1.55rem;line-height:1.1}
+.save-indicator{font-size:0.68rem;color:#a8c0e8;text-align:center;padding:4px 0;background:var(--navy);letter-spacing:.04em}
+
+/* ── Layout ── */
+.wrap{max-width:860px;margin:0 auto;padding:16px 12px}
+
+/* ── Cards ── */
+.card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.card-head{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--navy);padding:14px 16px 10px;border-bottom:2px solid var(--sky)}
+.card-body{padding:12px 16px}
+
+/* ── Job Info fields ── */
+.field-row{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+.field-row label{font-size:0.82rem;font-weight:600;color:var(--navy)}
+.field-row input,.field-row textarea,.field-row select{
+  width:100%;padding:11px 12px;border:1.5px solid var(--line);border-radius:8px;
+  font-family:'DM Sans',sans-serif;font-size:0.92rem;color:var(--text);background:#fff;
+  min-height:var(--tap);
+}
+.field-row textarea{min-height:72px;resize:vertical}
+.field-row input:focus,.field-row textarea:focus{outline:none;border-color:var(--blue)}
+
+/* ── Base fee rows ── */
+.fee-row{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);gap:12px}
+.fee-row:last-child{border-bottom:none}
+.fee-row label{font-size:0.88rem;font-weight:500;display:flex;align-items:center;gap:10px;flex:1;cursor:pointer}
+.fee-row label input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue);flex-shrink:0}
+.fee-price{display:flex;align-items:center;gap:4px;font-size:0.85rem;color:var(--muted)}
+.fee-price input{width:80px;padding:8px 10px;text-align:right;border:1.5px solid var(--line);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem}
+.fee-price input:focus{outline:none;border-color:var(--blue)}
+.fee-note{font-size:0.72rem;color:var(--muted);font-weight:400;display:block;margin-top:1px}
+
+/* ── Category sections ── */
+.cat-section{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;overflow:hidden}
+.cat-hdr{display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(90deg,var(--navy),var(--blue));cursor:pointer;user-select:none;min-height:var(--tap)}
+.cat-hdr .icon{font-size:1.1rem;flex-shrink:0}
+.cat-hdr h3{font-family:'DM Serif Display',serif;color:#fff;font-size:0.98rem;font-weight:400;flex:1}
+.cat-badge{background:rgba(255,255,255,.22);color:#fff;border-radius:20px;font-size:0.7rem;font-weight:700;padding:3px 10px;white-space:nowrap}
+.cat-badge.active{background:rgba(42,157,110,.5)}
+.tog{color:rgba(255,255,255,.7);font-size:0.85rem;transition:transform .2s;flex-shrink:0}
+.cat-body{padding:0}
+.cat-body.closed{display:none}
+
+/* ── Task rows ── */
+.t-row{border-bottom:1px solid var(--line);transition:background .12s}
+.t-row:last-child{border-bottom:none}
+.t-row.sel{background:#edf3fc}
+.t-main{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;min-height:var(--tap)}
+.t-main input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue);flex-shrink:0;cursor:pointer}
+.t-name{flex:1;font-size:0.88rem;font-weight:500;color:var(--text);cursor:pointer;line-height:1.3}
+.t-sub{font-size:0.78rem;font-weight:700;color:var(--green);min-width:56px;text-align:right;white-space:nowrap}
+
+/* inputs shown when checked */
+.t-inputs{display:none;padding:0 16px 12px 46px;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.t-row.sel .t-inputs{display:flex}
+.inp-grp{display:flex;flex-direction:column;gap:3px}
+.inp-grp span{font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.inp-grp input[type=number]{width:80px;padding:10px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;text-align:right;min-height:44px}
+.inp-grp input[type=number]:focus{outline:none;border-color:var(--blue)}
+.inp-det{flex:1;min-width:160px;display:flex;flex-direction:column;gap:3px}
+.inp-det span{font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.inp-det input{width:100%;padding:10px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;min-height:44px}
+.inp-det input:focus{outline:none;border-color:var(--blue)}
+
+/* ── Shower section ── */
+.sh-row{border-bottom:1px solid var(--line);transition:background .12s}
+.sh-row:last-child{border-bottom:none}
+.sh-row.sel{background:#edf3fc}
+.sh-main{display:flex;align-items:center;gap:10px;padding:12px 16px;cursor:pointer;min-height:var(--tap)}
+.sh-main input[type=checkbox]{width:20px;height:20px;accent-color:var(--blue);flex-shrink:0}
+.sh-name{flex:1;font-size:0.88rem;font-weight:500;line-height:1.3}
+.sh-badge{font-size:0.65rem;background:#fff3e0;color:#c85e00;border-radius:4px;padding:2px 6px;font-weight:700;white-space:nowrap;flex-shrink:0}
+.sh-sub{font-size:0.78rem;font-weight:700;color:var(--green);min-width:56px;text-align:right;white-space:nowrap}
+.sh-inputs{display:none;padding:0 16px 12px 46px;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.sh-row.sel .sh-inputs{display:flex}
+
+/* ── Custom lines ── */
+.cust-row{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;padding:10px 0;border-bottom:1px solid var(--line)}
+.cust-row:last-child{border-bottom:none}
+.cust-desc{flex:1;min-width:160px;display:flex;flex-direction:column;gap:3px}
+.cust-desc span{font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.cust-desc input{width:100%;padding:10px 10px;border:1.5px solid var(--line);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.88rem;min-height:44px}
+.cust-desc input:focus{outline:none;border-color:var(--blue)}
+.rm-btn{background:none;border:1.5px solid var(--line);border-radius:8px;color:var(--muted);font-size:1rem;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;flex-shrink:0;align-self:flex-end}
+.rm-btn:active{background:#fee2e2;border-color:#f87171;color:#dc2626}
+.add-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:13px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.92rem;font-weight:600;cursor:pointer;margin-top:12px;min-height:var(--tap)}
+.add-btn:active{background:var(--navy)}
+
+/* ── Summary ── */
+.summary-card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;border-left:4px solid var(--green);overflow:hidden}
+.s-head{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--navy);padding:14px 16px 10px}
+.s-body{padding:0 16px 12px}
+.s-line{display:flex;justify-content:space-between;font-size:0.85rem;padding:6px 0;border-bottom:1px dashed var(--line)}
+.s-line:last-child{border-bottom:none}
+.s-line.tot{font-weight:700;font-size:0.98rem;color:var(--navy);padding-top:10px;margin-top:4px;border-top:2px solid var(--navy);border-bottom:none}
+.s-empty{font-size:0.85rem;color:var(--muted);font-style:italic;padding:4px 0}
+.s-line .s-det{font-size:0.75rem;color:var(--muted);margin-top:1px}
+
+/* ── Action buttons ── */
+.btn-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+.btn-row .btn-gen{grid-column:1/-1}
+.btn{padding:15px;border:none;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:0.95rem;font-weight:700;cursor:pointer;min-height:var(--tap);transition:background .15s}
+.btn-calc{background:var(--blue);color:#fff}
+.btn-calc:active{background:var(--navy)}
+.btn-clr{background:#f0f3fa;color:var(--navy);border:1.5px solid var(--line)}
+.btn-clr:active{background:#e4e9f5}
+.btn-gen{background:var(--navy);color:#fff}
+.btn-gen:active{background:#0f2040}
+
+/* ── Estimate View ── */
+#estView{display:none;background:#fff;min-height:100vh}
+.est-bar{background:var(--navy);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:200;box-shadow:0 2px 12px rgba(0,0,0,.18)}
+.btn-back{background:rgba(255,255,255,.15);color:#fff;border:none;border-radius:8px;font-family:'DM Sans',sans-serif;font-weight:600;font-size:0.88rem;cursor:pointer;padding:10px 18px;min-height:44px}
+.btn-back:active{background:rgba(255,255,255,.3)}
+.est-hint{color:#a8c0e8;font-size:0.72rem;text-align:center;line-height:1.5}
+.est-doc{max-width:720px;margin:0 auto;padding:40px 28px 80px}
+.est-top{text-align:center;margin-bottom:24px}
+.est-brand{font-size:1.8rem;font-weight:800;color:var(--navy);line-height:1}
+.est-brand span{color:var(--accent)}
+.est-tag{font-size:0.72rem;letter-spacing:.12em;text-transform:uppercase;color:#888;margin-top:4px}
+.est-h1{font-size:1.45rem;font-weight:700;text-align:center;margin:16px 0 22px}
+.est-field-row{display:flex;align-items:baseline;gap:6px;margin-bottom:8px}
+.efl{font-weight:700;font-size:0.88rem;white-space:nowrap}
+.efv{flex:1;border-bottom:1.5px solid #111;min-width:60px;font-size:0.88rem;padding-bottom:2px;padding-left:4px;color:#111}
+.est-sec{font-weight:700;font-size:0.92rem;margin:20px 0 8px}
+.est-table{width:100%;border-collapse:collapse;font-size:0.85rem;margin-bottom:6px}
+.est-table th{background:var(--navy);color:#fff;padding:8px 8px;text-align:left;font-weight:600;font-size:0.75rem;letter-spacing:.05em;text-transform:uppercase}
+.est-table th.r{text-align:right}
+.est-table td{padding:7px 8px;border-bottom:1px solid #ddd;vertical-align:top}
+.est-table td.r{text-align:right;white-space:nowrap}
+.est-table td.det{font-size:0.75rem;color:#555;font-style:italic;padding-top:2px;padding-bottom:6px;border-bottom:1px solid #ddd}
+.est-table tr.tot-row td{font-weight:700;border-top:2px solid #111;border-bottom:none;font-size:0.92rem;padding-top:10px}
+.est-uline{border-bottom:1.5px solid #111;min-height:22px;margin-bottom:8px;padding-left:4px;font-size:0.88rem}
+.est-disclaimer{font-size:0.78rem;color:#444;font-style:italic;line-height:1.6;margin-bottom:8px}
+.est-notes-txt{font-size:0.85rem;color:#222;line-height:1.6;margin-bottom:8px}
+.est-sig-sec{margin-top:28px}
+.est-sig-title{font-weight:700;font-size:0.95rem;margin-bottom:10px}
+.est-consent{font-size:0.82rem;font-weight:600;margin-bottom:18px;line-height:1.6;color:#111}
+.est-sig-row{display:flex;gap:24px;margin-bottom:14px}
+.est-sig-field{flex:1}
+.sig-lbl{font-weight:700;font-size:0.82rem}
+.sig-line{border-bottom:1.5px solid #111;height:24px;margin-top:2px}
+.sig-date{width:110px;flex-shrink:0}
+
+@media(max-width:480px){
+  .est-sig-row{flex-direction:column;gap:12px}
+  .sig-date{width:100%}
+  .est-doc{padding:28px 16px 60px}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════ BUILDER ═══════════ -->
+<div id="builderView">
+<div class="hdr">
+  <div class="hdr-title"><h1>🔧 Good &amp; Handy</h1><p>Estimate Builder</p></div>
+  <div class="hdr-total"><div class="lbl">Total</div><div class="amt" id="hdrTotal">$0.00</div></div>
+</div>
+<div class="save-indicator" id="saveInd">Auto-save enabled</div>
+
+<div class="wrap">
+
+  <!-- Job Info -->
+  <div class="card">
+    <div class="card-head">Job Information</div>
+    <div class="card-body">
+      <div class="field-row"><label>Client Name</label><input type="text" id="f_client"></div>
+      <div class="field-row"><label>Date</label><input type="date" id="f_date"></div>
+      <div class="field-row"><label>Project Address</label><input type="text" id="f_addr"></div>
+      <div class="field-row"><label>Project</label><input type="text" id="f_project"></div>
+      <div class="field-row"><label>Estimated Duration</label><input type="text" id="f_duration"></div>
+      <div class="field-row"><label>Additional Notes</label><textarea id="f_notes"></textarea></div>
+    </div>
+  </div>
+
+  <!-- Base Fees -->
+  <div class="card">
+    <div class="card-head">Base Fees</div>
+    <div class="card-body">
+      <div class="fee-row">
+        <label><input type="checkbox" id="chk_trip" onchange="save();recalc()"> Trip Charge</label>
+        <div class="fee-price">$<input type="number" id="pr_trip" value="50" onchange="save();recalc()"></div>
+      </div>
+      <div class="fee-row">
+        <label>Minimum Job Fee<span class="fee-note">Applied if total falls below</span></label>
+        <div class="fee-price">$<input type="number" id="pr_min" value="100" onchange="save();recalc()"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hourly -->
+  <div class="card">
+    <div class="card-head">Hourly Labor</div>
+    <div class="card-body">
+      <div class="fee-row">
+        <label>Hourly Rate</label>
+        <div class="fee-price">$<input type="number" id="pr_rate" value="100" onchange="save();recalc()">/hr</div>
+      </div>
+      <div class="fee-row">
+        <label>Estimated Hours</label>
+        <div class="fee-price"><input type="number" id="pr_hrs" value="0" min="0" step="0.5" onchange="save();recalc()">hrs</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shower & Tile -->
+  <div class="cat-section" id="sec_shower">
+    <div class="cat-hdr" onclick="toggleCat('shower')">
+      <span class="icon">🚿</span><h3>Shower &amp; Tile Work</h3>
+      <span class="cat-badge" id="bdg_shower">0 selected</span>
+      <span class="tog" id="tog_shower">▼</span>
+    </div>
+    <div class="cat-body closed" id="body_shower">
+
+      <!-- Tile Demo -->
+      <div class="sh-row" id="shr_tileDemo">
+        <div class="sh-main" onclick="toggleShower('tileDemo')">
+          <input type="checkbox" id="shk_tileDemo" onclick="event.stopPropagation()" onchange="showerCheck('tileDemo');save();recalc()">
+          <span class="sh-name">Tile Demo</span>
+          <span class="sh-sub" id="shs_tileDemo"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Sq Ft</span><input type="number" id="shsf_tileDemo" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / sq ft</span><input type="number" id="shpr_tileDemo" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_tileDemo" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- Prep Walls -->
+      <div class="sh-row" id="shr_prepWalls">
+        <div class="sh-main" onclick="toggleShower('prepWalls')">
+          <input type="checkbox" id="shk_prepWalls" onclick="event.stopPropagation()" onchange="showerCheck('prepWalls');save();recalc()">
+          <span class="sh-name">Prep Walls</span>
+          <span class="sh-sub" id="shs_prepWalls"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>$ Flat</span><input type="number" id="shpr_prepWalls" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_prepWalls" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- Backerboard -->
+      <div class="sh-row" id="shr_backerboard">
+        <div class="sh-main" onclick="toggleShower('backerboard')">
+          <input type="checkbox" id="shk_backerboard" onclick="event.stopPropagation()" onchange="showerCheck('backerboard');save();recalc()">
+          <span class="sh-name">Install Backerboard</span>
+          <span class="sh-sub" id="shs_backerboard"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>$ Flat</span><input type="number" id="shpr_backerboard" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_backerboard" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- RedGard -->
+      <div class="sh-row" id="shr_redgard">
+        <div class="sh-main" onclick="toggleShower('redgard')">
+          <input type="checkbox" id="shk_redgard" onclick="event.stopPropagation()" onchange="showerCheck('redgard');save();recalc()">
+          <span class="sh-name">RedGard <span class="sh-badge">×2 coats auto</span></span>
+          <span class="sh-sub" id="shs_redgard"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Sq Ft</span><input type="number" id="shsf_redgard" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / sq ft</span><input type="number" id="shpr_redgard" value="0" onchange="save();recalc()"></div>
+        </div>
+      </div>
+
+      <!-- Tile Install -->
+      <div class="sh-row" id="shr_tileInstall">
+        <div class="sh-main" onclick="toggleShower('tileInstall')">
+          <input type="checkbox" id="shk_tileInstall" onclick="event.stopPropagation()" onchange="showerCheck('tileInstall');save();recalc()">
+          <span class="sh-name">Tile Installation</span>
+          <span class="sh-sub" id="shs_tileInstall"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Sq Ft</span><input type="number" id="shsf_tileInstall" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / sq ft</span><input type="number" id="shpr_tileInstall" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_tileInstall" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- Grout -->
+      <div class="sh-row" id="shr_groutTile">
+        <div class="sh-main" onclick="toggleShower('groutTile')">
+          <input type="checkbox" id="shk_groutTile" onclick="event.stopPropagation()" onchange="showerCheck('groutTile');save();recalc()">
+          <span class="sh-name">Grout Tile</span>
+          <span class="sh-sub" id="shs_groutTile"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Sq Ft</span><input type="number" id="shsf_groutTile" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / sq ft</span><input type="number" id="shpr_groutTile" value="0" onchange="save();recalc()"></div>
+        </div>
+      </div>
+
+      <!-- Seal Grout -->
+      <div class="sh-row" id="shr_sealGrout">
+        <div class="sh-main" onclick="toggleShower('sealGrout')">
+          <input type="checkbox" id="shk_sealGrout" onclick="event.stopPropagation()" onchange="showerCheck('sealGrout');save();recalc()">
+          <span class="sh-name">Seal Grout</span>
+          <span class="sh-sub" id="shs_sealGrout"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Sq Ft</span><input type="number" id="shsf_sealGrout" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / sq ft</span><input type="number" id="shpr_sealGrout" value="0" onchange="save();recalc()"></div>
+        </div>
+      </div>
+
+      <!-- Shower Trim -->
+      <div class="sh-row" id="shr_showerTrim">
+        <div class="sh-main" onclick="toggleShower('showerTrim')">
+          <input type="checkbox" id="shk_showerTrim" onclick="event.stopPropagation()" onchange="showerCheck('showerTrim');save();recalc()">
+          <span class="sh-name">Install Shower Trim</span>
+          <span class="sh-sub" id="shs_showerTrim"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Lin Ft</span><input type="number" id="shlf_showerTrim" value="0" min="0" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / lin ft</span><input type="number" id="shpr_showerTrim" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_showerTrim" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- Install Fixture -->
+      <div class="sh-row" id="shr_fixture">
+        <div class="sh-main" onclick="toggleShower('fixture')">
+          <input type="checkbox" id="shk_fixture" onclick="event.stopPropagation()" onchange="showerCheck('fixture');save();recalc()">
+          <span class="sh-name">Install Fixture</span>
+          <span class="sh-sub" id="shs_fixture"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>Qty</span><input type="number" id="shqt_fixture" value="1" min="1" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / ea</span><input type="number" id="shpr_fixture" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="shdt_fixture" onchange="save()"></div>
+        </div>
+      </div>
+
+      <!-- Pull & Reset Toilet -->
+      <div class="sh-row" id="shr_toilet">
+        <div class="sh-main" onclick="toggleShower('toilet')">
+          <input type="checkbox" id="shk_toilet" onclick="event.stopPropagation()" onchange="showerCheck('toilet');save();recalc()">
+          <span class="sh-name">Pull &amp; Reset Toilet</span>
+          <span class="sh-sub" id="shs_toilet"></span>
+        </div>
+        <div class="sh-inputs">
+          <div class="inp-grp"><span>$ Flat</span><input type="number" id="shpr_toilet" value="150" onchange="save();recalc()"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Dynamic categories built by JS -->
+  <div id="catSections"></div>
+
+  <!-- Custom Line Items -->
+  <div class="card">
+    <div class="card-head">Custom Line Items</div>
+    <div class="card-body">
+      <div id="customLines"></div>
+      <button class="add-btn" onclick="addCustom()">+ Add Line Item</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-card">
+    <div class="s-head">📋 Estimate Summary</div>
+    <div class="s-body" id="sumBody"><div class="s-empty">No items selected yet.</div></div>
+  </div>
+
+  <!-- Action buttons -->
+  <div class="btn-row">
+    <button class="btn btn-calc" onclick="recalc()">Recalculate</button>
+    <button class="btn btn-clr" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-gen btn-gen" onclick="showEstimate()">Generate Estimate</button>
+  </div>
+
+</div><!-- /wrap -->
+</div><!-- /builderView -->
+
+<!-- ═══════════ ESTIMATE ═══════════ -->
+<div id="estView">
+  <div class="est-bar">
+    <button class="btn-back" onclick="showBuilder()">← Back</button>
+    <div class="est-hint">Browser menu → Share → Print<br>to save as PDF</div>
+    <div style="width:80px"></div>
+  </div>
+  <div class="est-doc" id="estDoc"></div>
+</div>
+
+<script>
+// ══════════ CATEGORY DATA ══════════
+const CATS = [
+  { id:"demo", icon:"🔨", label:"Demo & Removal", items:[
+    "Full Room Demo","Bathroom Demo","Kitchen Demo","Basement Demo",
+    "Drywall Demo & Removal","Ceiling Demo & Removal","Subfloor Demo & Removal",
+    "Wall Tile Demo & Removal","Floor Tile Demo & Removal",
+    "Hardwood Floor Demo & Removal","Carpet Demo & Removal",
+    "LVP / Laminate Demo & Removal","Concrete Demo & Removal",
+    "Deck Demo & Removal","Fence Demo & Removal","Siding Demo & Removal",
+    "Roofing Demo & Removal","Stucco Demo & Removal","Insulation Removal",
+    "Popcorn Ceiling Removal","Cabinet Demo & Removal","Countertop Demo & Removal",
+    "Tub / Shower Demo & Removal","Vanity Demo & Removal","Toilet Removal",
+    "Window Demo & Removal","Door Demo & Removal","Framing Demo & Removal",
+    "Block / Brick Wall Demo","Landscaping Demo","Debris Haul-Away",
+  ]},
+  { id:"carp", icon:"🪵", label:"Carpentry & Framing", items:[
+    "Stud Wall Framing","Partition Wall Build-Out","Structural Beam Installation",
+    "Post Installation","Joist Installation","Blocking Installation","Stair Framing",
+    "Subfloor Installation","Wall Sheathing Installation","Roof Sheathing Installation",
+    "Rafter Installation","Ledger Board Installation","Deck Framing","Soffit Framing",
+    "Furring Strip Installation","Trim Carpentry","Crown Molding Installation",
+    "Baseboard Installation","Door Casing Installation","Window Casing Installation",
+    "Interior Door Installation","Exterior Door Installation","Pocket Door Installation",
+    "Barn Door Installation","Closet Build-Out","Shelving Installation","Cabinet Installation",
+    "Door/Window Header Installation","Stair Railing Installation","Handrail Installation",
+  ]},
+  { id:"elec", icon:"💡", label:"Electrical", items:[
+    "Main Panel Upgrade","Sub-Panel Installation","New Circuit Installation",
+    "Dedicated Circuit Installation","Outlet Installation","GFCI Outlet Installation",
+    "Switch Installation","Dimmer Switch Installation","Light Fixture Installation",
+    "Recessed Light Installation","Ceiling Fan Installation","Exhaust Fan Installation",
+    "Under-Cabinet Lighting","Outdoor Outlet Installation","Conduit Installation",
+    "Junction Box Installation","EV Charger Installation","Low-Voltage Wiring",
+    "Smoke / CO Detector Installation","Landscape Lighting Installation",
+    "Smart Thermostat Installation","Whole-House Generator Connection",
+    "Panel Breaker Replacement","Wiring Rough-In","Wiring Trim-Out",
+  ]},
+  { id:"plmb", icon:"🚰", label:"Plumbing", items:[
+    "Water Supply Line Installation","Drain Line Installation","Vent Stack Installation",
+    "Fixture Rough-In","Toilet Installation","Sink Installation","Shower/Tub Installation",
+    "Faucet Installation","Water Heater Installation","Tankless Water Heater Installation",
+    "Shut-Off Valve Installation","Pressure Regulator Installation","P-Trap Installation",
+    "Cleanout Installation","Garbage Disposal Installation","Dishwasher Connection",
+    "Washing Machine Hook-Up","Hose Bib Installation","Gas Line Installation",
+    "Water Softener Installation","Whole-House Filter Installation","Tub Drain Installation",
+    "Drain Assembly Replacement","Shower Pan Installation","Plumbing Rough-In","Plumbing Trim-Out",
+  ]},
+  { id:"dryw", icon:"🧱", label:"Drywall", items:[
+    "Drywall Hanging","Drywall Taping & Bedding","Drywall Finishing (Level 4/5)",
+    "Skim Coat","Corner Bead Installation","Texture Application","Drywall Repair — Small",
+    "Drywall Repair — Medium","Drywall Repair — Large","Fire-Rated Drywall Installation",
+    "Ceiling Drywall Installation","Soundproofing Drywall Installation",
+    "Moisture-Resistant Drywall Installation","Access Panel Installation",
+  ]},
+  { id:"pnti", icon:"🎨", label:"Painting — Interior", items:[
+    "Wall Painting","Ceiling Painting","Trim & Baseboard Painting","Door Painting",
+    "Window Trim Painting","Cabinet Painting","Primer/Sealer Application",
+    "Accent Wall","Epoxy Floor Coating","Staircase Painting","Closet Interior Painting",
+    "Garage Interior Painting","Paint Removal / Stripping",
+  ]},
+  { id:"pnte", icon:"🏡", label:"Painting — Exterior", items:[
+    "Exterior Wall Painting","Exterior Trim Painting","Exterior Door Painting",
+    "Fascia & Soffit Painting","Deck/Fence Staining & Sealing",
+    "Primer/Sealer Application (Exterior)","Stucco Painting","Masonry Painting",
+    "Garage Door Painting","Exterior Shutters Painting","Caulking & Prep Work",
+  ]},
+  { id:"flor", icon:"🏠", label:"Flooring", items:[
+    "Hardwood Floor Installation","Engineered Hardwood Installation",
+    "Laminate Flooring Installation","LVP / LVT Installation","Tile Floor Installation",
+    "Carpet Installation","Subfloor Installation","Subfloor Repair",
+    "Floor Leveling / Self-Leveling","Baseboard Installation",
+    "Transition Strip Installation","Stair Tread Installation",
+    "Floor Sanding & Refinishing","Grout & Seal",
+  ]},
+  { id:"outd", icon:"🌿", label:"Outdoor", items:[
+    "Deck Construction","Fence Installation","Fence Repair",
+    "Gate Installation","Concrete Flatwork","Paver Installation",
+    "Retaining Wall Construction","Site Grading & Leveling","Sod Installation",
+    "Irrigation System Installation","Outdoor Lighting Installation",
+    "Pergola / Gazebo Construction","Shed Construction",
+    "Driveway Repair / Resurfacing","Walkway Construction",
+    "Outdoor Kitchen Framing","Drainage Installation","Block Wall Construction",
+  ]},
+];
+
+// ══════════ BUILD DYNAMIC CATEGORIES ══════════
+function buildCats() {
+  const container = document.getElementById("catSections");
+  CATS.forEach(cat => {
+    const sec = document.createElement("div");
+    sec.className = "cat-section"; sec.id = `sec_${cat.id}`;
+
+    const hdr = document.createElement("div");
+    hdr.className = "cat-hdr";
+    hdr.innerHTML = `<span class="icon">${cat.icon}</span><h3>${cat.label}</h3><span class="cat-badge" id="bdg_${cat.id}">0 selected</span><span class="tog" id="tog_${cat.id}">▼</span>`;
+    hdr.onclick = () => toggleCat(cat.id);
+    sec.appendChild(hdr);
+
+    const body = document.createElement("div");
+    body.className = "cat-body closed"; body.id = `body_${cat.id}`;
+
+    cat.items.forEach((name, i) => {
+      const tid = `${cat.id}_${i}`;
+      const row = document.createElement("div");
+      row.className = "t-row"; row.id = `row_${tid}`;
+      row.innerHTML = `
+        <div class="t-main" onclick="toggleTask('${tid}','${cat.id}')">
+          <input type="checkbox" id="chk_${tid}" onclick="event.stopPropagation()" onchange="updateBadge('${cat.id}');save();recalc()">
+          <span class="t-name">${name}</span>
+          <span class="t-sub" id="sub_${tid}"></span>
+        </div>
+        <div class="t-inputs">
+          <div class="inp-grp"><span>Qty</span><input type="number" id="qty_${tid}" value="1" min="1" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / ea</span><input type="number" id="pr_${tid}" value="0" onchange="save();recalc()"></div>
+          <div class="inp-det"><span>Details</span><input type="text" id="det_${tid}" oninput="save()"></div>
+        </div>`;
+      body.appendChild(row);
+    });
+    sec.appendChild(body);
+    container.appendChild(sec);
+  });
+}
+
+// ══════════ TOGGLE HELPERS ══════════
+function toggleCat(id) {
+  const body = document.getElementById(`body_${id}`);
+  const tog  = document.getElementById(`tog_${id}`);
+  body.classList.toggle("closed");
+  tog.style.transform = body.classList.contains("closed") ? "" : "rotate(180deg)";
+}
+function toggleTask(tid, catId) {
+  const cb = document.getElementById(`chk_${tid}`);
+  cb.checked = !cb.checked;
+  document.getElementById(`row_${tid}`).classList.toggle("sel", cb.checked);
+  updateBadge(catId); save(); recalc();
+}
+function toggleShower(id) {
+  const cb = document.getElementById(`shk_${id}`);
+  cb.checked = !cb.checked;
+  document.getElementById(`shr_${id}`).classList.toggle("sel", cb.checked);
+  showerCheck(id); save(); recalc();
+}
+function showerCheck(id) {
+  const cb = document.getElementById(`shk_${id}`);
+  document.getElementById(`shr_${id}`).classList.toggle("sel", cb.checked);
+  const n = document.getElementById("body_shower").querySelectorAll("input[type=checkbox]:checked").length;
+  const bdg = document.getElementById("bdg_shower");
+  bdg.textContent = `${n} selected`;
+  bdg.className = "cat-badge" + (n > 0 ? " active" : "");
+}
+function updateBadge(catId) {
+  const n = document.getElementById(`body_${catId}`).querySelectorAll("input[type=checkbox]:checked").length;
+  const bdg = document.getElementById(`bdg_${catId}`);
+  bdg.textContent = `${n} selected`;
+  bdg.className = "cat-badge" + (n > 0 ? " active" : "");
+  document.getElementById(`row_${catId}`)?.classList.toggle("sel", false); // no-op safety
+  // also update individual rows
+  document.querySelectorAll(`[id^="chk_${catId}_"]`).forEach(cb => {
+    document.getElementById(`row_${cb.id.replace("chk_","")}`)?.classList.toggle("sel", cb.checked);
+  });
+}
+
+// ══════════ CUSTOM LINES ══════════
+let customCount = 0;
+function addCustom() {
+  const id = ++customCount;
+  const row = document.createElement("div");
+  row.className = "cust-row"; row.id = `crow_${id}`;
+  row.innerHTML = `
+    <div class="cust-desc"><span>Description</span><input type="text" id="cdesc_${id}" oninput="save();recalc()"></div>
+    <div class="inp-grp"><span>Qty</span><input type="number" id="cqty_${id}" value="1" min="1" onchange="save();recalc()"></div>
+    <div class="inp-grp"><span>$ / ea</span><input type="number" id="cprice_${id}" value="0" onchange="save();recalc()"></div>
+    <button class="rm-btn" onclick="removeCustom(${id})">✕</button>`;
+  document.getElementById("customLines").appendChild(row);
+  save(); recalc();
+}
+function removeCustom(id) {
+  document.getElementById(`crow_${id}`)?.remove();
+  save(); recalc();
+}
+
+// ══════════ COLLECT ALL LINES ══════════
+function getLines() {
+  const lines = []; let total = 0;
+
+  // Trip
+  if (document.getElementById("chk_trip").checked) {
+    const v = parseFloat(document.getElementById("pr_trip").value)||0;
+    if (v>0) { lines.push({name:"Trip Charge",qty:1,unit:v,sub:v}); total+=v; }
+  }
+  // Hourly
+  const rate = parseFloat(document.getElementById("pr_rate").value)||0;
+  const hrs  = parseFloat(document.getElementById("pr_hrs").value)||0;
+  if (hrs>0) { const s=rate*hrs; lines.push({name:`Hourly Labor @ $${rate}/hr`,qty:hrs,unit:rate,sub:s,qtyLabel:"hrs"}); total+=s; }
+
+  // Shower items
+  const shItems = [
+    {id:"tileDemo",    name:"Tile Demo",             mode:"sqft"},
+    {id:"prepWalls",   name:"Prep Walls",             mode:"flat",det:true},
+    {id:"backerboard", name:"Install Backerboard",    mode:"flat",det:true},
+    {id:"redgard",     name:"RedGard (2 coats)",      mode:"sqft2"},
+    {id:"tileInstall", name:"Tile Installation",      mode:"sqft",det:true},
+    {id:"groutTile",   name:"Grout Tile",             mode:"sqft"},
+    {id:"sealGrout",   name:"Seal Grout",             mode:"sqft"},
+    {id:"showerTrim",  name:"Install Shower Trim",    mode:"linft",det:true},
+    {id:"fixture",     name:"Install Fixture",        mode:"qty",det:true},
+    {id:"toilet",      name:"Pull & Reset Toilet",    mode:"flat"},
+  ];
+  shItems.forEach(item => {
+    const cb = document.getElementById(`shk_${item.id}`);
+    if (!cb?.checked) { setShs(item.id,0); return; }
+    const pr = parseFloat(document.getElementById(`shpr_${item.id}`)?.value)||0;
+    let sub=0,qtyVal=1,qtyLabel="";
+    if (item.mode==="sqft")  { qtyVal=parseFloat(document.getElementById(`shsf_${item.id}`)?.value)||0; sub=qtyVal*pr; qtyLabel="sq ft"; }
+    else if (item.mode==="sqft2"){ qtyVal=parseFloat(document.getElementById(`shsf_${item.id}`)?.value)||0; sub=qtyVal*pr*2; qtyLabel="sq ft"; }
+    else if (item.mode==="linft"){ qtyVal=parseFloat(document.getElementById(`shlf_${item.id}`)?.value)||0; sub=qtyVal*pr; qtyLabel="lin ft"; }
+    else if (item.mode==="qty")  { qtyVal=parseFloat(document.getElementById(`shqt_${item.id}`)?.value)||1; sub=qtyVal*pr; qtyLabel="qty"; }
+    else { sub=pr; qtyVal=1; qtyLabel=""; }
+    setShs(item.id,sub);
+    total+=sub;
+    const det = item.det ? (document.getElementById(`shdt_${item.id}`)?.value||"").trim() : "";
+    lines.push({name:item.name,qty:qtyVal,unit:pr,sub,qtyLabel,det});
+  });
+
+  // Standard categories
+  CATS.forEach(cat => {
+    cat.items.forEach((name,i) => {
+      const tid=`${cat.id}_${i}`;
+      const cb=document.getElementById(`chk_${tid}`);
+      if (!cb?.checked) return;
+      const qty=parseFloat(document.getElementById(`qty_${tid}`)?.value)||1;
+      const pr =parseFloat(document.getElementById(`pr_${tid}`)?.value)||0;
+      const det=(document.getElementById(`det_${tid}`)?.value||"").trim();
+      const sub=qty*pr;
+      const el=document.getElementById(`sub_${tid}`);
+      if(el) el.textContent=sub>0?`$${sub.toFixed(2)}`:"";
+      total+=sub;
+      lines.push({name,qty,unit:pr,sub,qtyLabel:"qty",det});
+    });
+  });
+
+  // Custom
+  document.querySelectorAll("[id^='crow_']").forEach(row => {
+    const id=row.id.split("_")[1];
+    const desc=(document.getElementById(`cdesc_${id}`)?.value||"").trim();
+    const qty=parseFloat(document.getElementById(`cqty_${id}`)?.value)||1;
+    const pr=parseFloat(document.getElementById(`cprice_${id}`)?.value)||0;
+    if (desc) { const sub=qty*pr; lines.push({name:desc,qty,unit:pr,sub,qtyLabel:"qty"}); total+=sub; }
+  });
+
+  const minFee=parseFloat(document.getElementById("pr_min").value)||0;
+  if (total>0 && total<minFee) total=minFee;
+  return {lines,total};
+}
+
+function setShs(id,val) {
+  const el=document.getElementById(`shs_${id}`);
+  if(el) el.textContent=val>0?`$${val.toFixed(2)}`:"";
+}
+
+// ══════════ RECALC / SUMMARY ══════════
+function recalc() {
+  const {lines,total}=getLines();
+  document.getElementById("hdrTotal").textContent=`$${total.toFixed(2)}`;
+  const div=document.getElementById("sumBody");
+  if (!lines.length){div.innerHTML='<div class="s-empty">No items selected yet.</div>';return;}
+  div.innerHTML=lines.map(l=>`
+    <div class="s-line">
+      <div><div>${l.name}${l.qtyLabel&&l.qty>0?` (${l.qty} ${l.qtyLabel})`:""}</div>${l.det?`<div class="s-det">${l.det}</div>`:""}</div>
+      <div>$${l.sub.toFixed(2)}</div>
+    </div>`).join("")+`<div class="s-line tot"><span>TOTAL</span><span>$${total.toFixed(2)}</span></div>`;
+}
+
+// ══════════ CLEAR ALL ══════════
+function clearAll() {
+  if (!confirm("Clear all selections and job info?")) return;
+  // Job info
+  ["f_client","f_date","f_addr","f_project","f_duration","f_notes"].forEach(id=>{
+    const el=document.getElementById(id); if(el) el.value="";
+  });
+  // Base fees
+  document.getElementById("chk_trip").checked=false;
+  document.getElementById("pr_trip").value=50;
+  document.getElementById("pr_min").value=100;
+  document.getElementById("pr_rate").value=100;
+  document.getElementById("pr_hrs").value=0;
+  // Shower
+  ["tileDemo","prepWalls","backerboard","redgard","tileInstall","groutTile","sealGrout","showerTrim","fixture","toilet"].forEach(id=>{
+    const cb=document.getElementById(`shk_${id}`); if(cb){cb.checked=false;}
+    document.getElementById(`shr_${id}`)?.classList.remove("sel");
+    ["shsf_","shpr_","shlf_","shqt_"].forEach(p=>{const el=document.getElementById(`${p}${id}`);if(el)el.value=0;});
+    const qt=document.getElementById(`shqt_${id}`); if(qt) qt.value=1;
+    const det=document.getElementById(`shdt_${id}`); if(det) det.value="";
+    setShs(id,0);
+  });
+  document.getElementById(`shpr_toilet`).value=150;
+  const bdg=document.getElementById("bdg_shower");
+  bdg.textContent="0 selected"; bdg.className="cat-badge";
+  // Categories
+  CATS.forEach(cat=>{
+    cat.items.forEach((_,i)=>{
+      const tid=`${cat.id}_${i}`;
+      const cb=document.getElementById(`chk_${tid}`); if(cb) cb.checked=false;
+      document.getElementById(`row_${tid}`)?.classList.remove("sel");
+      const qty=document.getElementById(`qty_${tid}`); if(qty) qty.value=1;
+      const pr=document.getElementById(`pr_${tid}`); if(pr) pr.value=0;
+      const det=document.getElementById(`det_${tid}`); if(det) det.value="";
+      const sub=document.getElementById(`sub_${tid}`); if(sub) sub.textContent="";
+    });
+    const bdg=document.getElementById(`bdg_${cat.id}`);
+    if(bdg){bdg.textContent="0 selected";bdg.className="cat-badge";}
+  });
+  // Custom
+  document.getElementById("customLines").innerHTML="";
+  customCount=0;
+  localStorage.removeItem("gnh_estimate");
+  setInd("Cleared");
+  recalc();
+}
+
+// ══════════ AUTO SAVE ══════════
+let saveTimer=null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try {
+      const state={
+        job:{client:v("f_client"),date:v("f_date"),addr:v("f_addr"),project:v("f_project"),duration:v("f_duration"),notes:v("f_notes")},
+        fees:{trip:document.getElementById("chk_trip").checked,tripPr:v("pr_trip"),min:v("pr_min"),rate:v("pr_rate"),hrs:v("pr_hrs")},
+        shower:{},
+        tasks:{},
+        custom:[],
+      };
+      // Shower
+      ["tileDemo","prepWalls","backerboard","redgard","tileInstall","groutTile","sealGrout","showerTrim","fixture","toilet"].forEach(id=>{
+        state.shower[id]={checked:document.getElementById(`shk_${id}`)?.checked||false};
+        ["shsf_","shpr_","shlf_","shqt_"].forEach(p=>{const el=document.getElementById(`${p}${id}`);if(el)state.shower[id][p]=el.value;});
+        const det=document.getElementById(`shdt_${id}`); if(det) state.shower[id].det=det.value;
+      });
+      // Tasks
+      CATS.forEach(cat=>{
+        cat.items.forEach((_,i)=>{
+          const tid=`${cat.id}_${i}`;
+          const cb=document.getElementById(`chk_${tid}`);
+          if(cb?.checked){
+            state.tasks[tid]={
+              checked:true,
+              qty:document.getElementById(`qty_${tid}`)?.value||1,
+              pr:document.getElementById(`pr_${tid}`)?.value||0,
+              det:document.getElementById(`det_${tid}`)?.value||"",
+            };
+          }
+        });
+      });
+      // Custom
+      document.querySelectorAll("[id^='crow_']").forEach(row=>{
+        const id=row.id.split("_")[1];
+        state.custom.push({
+          id,
+          desc:document.getElementById(`cdesc_${id}`)?.value||"",
+          qty:document.getElementById(`cqty_${id}`)?.value||1,
+          price:document.getElementById(`cprice_${id}`)?.value||0,
+        });
+      });
+      localStorage.setItem("gnh_estimate",JSON.stringify(state));
+      setInd("Saved ✓");
+    } catch(e){ setInd("Save error"); }
+  },600);
+}
+
+function v(id){return document.getElementById(id)?.value||"";}
+function setInd(msg){const el=document.getElementById("saveInd");if(el)el.textContent=msg;}
+
+function loadState() {
+  try {
+    const raw=localStorage.getItem("gnh_estimate");
+    if(!raw) return;
+    const s=JSON.parse(raw);
+    // Job
+    if(s.job){
+      sv("f_client",s.job.client);sv("f_date",s.job.date);sv("f_addr",s.job.addr);
+      sv("f_project",s.job.project);sv("f_duration",s.job.duration);sv("f_notes",s.job.notes);
+    }
+    // Fees
+    if(s.fees){
+      document.getElementById("chk_trip").checked=s.fees.trip||false;
+      sv("pr_trip",s.fees.tripPr);sv("pr_min",s.fees.min);sv("pr_rate",s.fees.rate);sv("pr_hrs",s.fees.hrs);
+    }
+    // Shower
+    if(s.shower){
+      Object.keys(s.shower).forEach(id=>{
+        const d=s.shower[id];
+        const cb=document.getElementById(`shk_${id}`);
+        if(cb&&d.checked){cb.checked=true;document.getElementById(`shr_${id}`)?.classList.add("sel");}
+        ["shsf_","shpr_","shlf_","shqt_"].forEach(p=>{if(d[p]!==undefined){const el=document.getElementById(`${p}${id}`);if(el)el.value=d[p];}});
+        if(d.det!==undefined){const det=document.getElementById(`shdt_${id}`);if(det)det.value=d.det;}
+      });
+      const n=document.getElementById("body_shower").querySelectorAll("input[type=checkbox]:checked").length;
+      const bdg=document.getElementById("bdg_shower");
+      bdg.textContent=`${n} selected`; bdg.className="cat-badge"+(n>0?" active":"");
+    }
+    // Tasks
+    if(s.tasks){
+      Object.keys(s.tasks).forEach(tid=>{
+        const d=s.tasks[tid];
+        const cb=document.getElementById(`chk_${tid}`);
+        if(cb&&d.checked){
+          cb.checked=true;
+          document.getElementById(`row_${tid}`)?.classList.add("sel");
+          const catId=tid.split("_")[0];
+          sv(`qty_${tid}`,d.qty);sv(`pr_${tid}`,d.pr);sv(`det_${tid}`,d.det);
+        }
+      });
+      CATS.forEach(cat=>updateBadgeQuiet(cat.id));
+    }
+    // Custom
+    if(s.custom&&s.custom.length){
+      s.custom.forEach(c=>{
+        const id=++customCount;
+        const row=document.createElement("div");
+        row.className="cust-row";row.id=`crow_${id}`;
+        row.innerHTML=`
+          <div class="cust-desc"><span>Description</span><input type="text" id="cdesc_${id}" oninput="save();recalc()" value="${c.desc||""}"></div>
+          <div class="inp-grp"><span>Qty</span><input type="number" id="cqty_${id}" value="${c.qty||1}" min="1" onchange="save();recalc()"></div>
+          <div class="inp-grp"><span>$ / ea</span><input type="number" id="cprice_${id}" value="${c.price||0}" onchange="save();recalc()"></div>
+          <button class="rm-btn" onclick="removeCustom(${id})">✕</button>`;
+        document.getElementById("customLines").appendChild(row);
+      });
+    }
+    setInd("Restored from last session");
+  } catch(e){ setInd("Auto-save enabled"); }
+}
+
+function sv(id,val){const el=document.getElementById(id);if(el&&val!==undefined&&val!=="")el.value=val;}
+function updateBadgeQuiet(catId){
+  const n=document.getElementById(`body_${catId}`)?.querySelectorAll("input[type=checkbox]:checked").length||0;
+  const bdg=document.getElementById(`bdg_${catId}`);
+  if(bdg){bdg.textContent=`${n} selected`;bdg.className="cat-badge"+(n>0?" active":"");}
+}
+
+// ══════════ VIEWS ══════════
+function showBuilder(){
+  document.getElementById("estView").style.display="none";
+  document.getElementById("builderView").style.display="block";
+  window.scrollTo(0,0);
+}
+
+function showEstimate(){
+  const {lines,total}=getLines();
+  if(!lines.length){alert("No items selected.");return;}
+  const client=v("f_client"),date=fmtDate(v("f_date")),addr=v("f_addr"),
+        project=v("f_project"),duration=v("f_duration"),notes=v("f_notes");
+  const fv2=(val,maxW)=>`<div class="efv"${maxW?` style="max-width:${maxW}"`:""}>${val}</div>`;
+
+  const tableRows=lines.map(l=>{
+    const qtyStr=l.qtyLabel?`${l.qty} ${l.qtyLabel}`:l.qty>1?`${l.qty}`:"1";
+    const unitStr=l.qtyLabel==="hrs"?`$${l.unit}/hr`:l.qtyLabel==="sq ft"||l.qtyLabel==="lin ft"?`$${l.unit}/${l.qtyLabel}`:`$${l.unit}`;
+    const main=`<tr><td>${l.name}</td><td class="r">${qtyStr}</td><td class="r">${unitStr}</td><td class="r">$${l.sub.toFixed(2)}</td></tr>`;
+    const det=l.det?`<tr><td class="det" colspan="4">${l.det}</td></tr>`:"";
+    return main+det;
+  }).join("");
+
+  document.getElementById("estDoc").innerHTML=`
+    <div class="est-top">
+      <div class="est-brand">Good <span>&</span> Handy</div>
+      <div class="est-tag">Professional Handyman Services</div>
+    </div>
+    <h1 class="est-h1">Estimate</h1>
+    <div style="margin-bottom:14px">
+      <div class="est-field-row"><span class="efl">Client Name:</span>${fv2(client)}</div>
+      <div class="est-field-row"><span class="efl">Date:</span>${fv2(date,"240px")}</div>
+      <div class="est-field-row"><span class="efl">Project Address:</span>${fv2(addr)}</div>
+    </div>
+    <div class="est-field-row" style="margin-bottom:18px"><span class="efl">Project:</span>${fv2(project)}</div>
+    <div class="est-sec">Scope of Work</div>
+    <table class="est-table">
+      <thead><tr><th>Description</th><th class="r">Qty</th><th class="r">Unit Price</th><th class="r">Subtotal</th></tr></thead>
+      <tbody>${tableRows}<tr class="tot-row"><td colspan="3">Total Estimated Cost</td><td class="r">$${total.toFixed(2)}</td></tr></tbody>
+    </table>
+    <div class="est-sec" style="margin-top:20px">Estimated Duration</div>
+    <div class="est-uline">${duration}</div>
+    ${notes?`<div class="est-sec">Additional Notes</div><div class="est-notes-txt">${notes}</div>`:""}
+    <div class="est-sig-sec">
+      <div class="est-sig-title">Approval &amp; Acceptance</div>
+      <div class="est-consent">I agree to the scope of work, estimated costs, and project details outlined above. I acknowledge that this estimate is subject to change due to unforeseen conditions or necessary modifications. Any changes that affect the scope, cost, or project details will constitute a formal adjustment to this estimate, which I agree to honor upon acknowledgment.</div>
+      <div class="est-sig-row">
+        <div class="est-sig-field"><div class="sig-lbl">Client Signature:</div><div class="sig-line"></div></div>
+        <div class="est-sig-field sig-date"><div class="sig-lbl">Date:</div><div class="sig-line"></div></div>
+      </div>
+      <div class="est-sig-row">
+        <div class="est-sig-field"><div class="sig-lbl">Contractor Signature:</div><div class="sig-line"></div></div>
+        <div class="est-sig-field sig-date"><div class="sig-lbl">Date:</div><div class="sig-line"></div></div>
+      </div>
+    </div>`;
+
+  document.getElementById("builderView").style.display="none";
+  document.getElementById("estView").style.display="block";
+  window.scrollTo(0,0);
+}
+
+function fmtDate(val){
+  if(!val) return "";
+  try{return new Date(val+"T00:00:00").toLocaleDateString("en-US",{year:"numeric",month:"long",day:"numeric"});}
+  catch{return val;}
+}
+
+// ══════════ INIT ══════════
+buildCats();
+loadState();
+recalc();
+
+// Save on any input change across the whole page
+document.addEventListener("input",()=>save());
+document.addEventListener("change",()=>save());
+</script>
+</body>
+</html>
