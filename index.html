@@ -231,6 +231,14 @@ function recalc() {
 // ══════════ CLEAR ALL ══════════
 function clearAll() {
   if (!confirm("Clear all selections and job info?")) return;
+  clearAllSilent();
+  setInd("Cleared");
+}
+
+// Same reset as clearAll(), but no confirm dialog and no "Cleared" message —
+// used when the portal opens a new work order, so the builder always starts
+// blank before that job's data is generated over.
+function clearAllSilent() {
   // Job info
   ["f_client","f_date","f_addr","f_duration","f_notes"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value="";
@@ -239,8 +247,18 @@ function clearAll() {
   document.getElementById("customLines").innerHTML="";
   customCount=0;
   localStorage.removeItem("gnh_estimate");
-  setInd("Cleared");
   recalc();
+}
+
+// Populates the Date field with today's date. Called on load and whenever
+// the builder is cleared for a new work order, so the estimate always
+// starts with the current date — still a normal, editable date input.
+function setTodayDate() {
+  const el = document.getElementById("f_date");
+  if (!el) return;
+  const d = new Date();
+  const pad = n => String(n).padStart(2,"0");
+  el.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
 }
 
 // ══════════ AUTO SAVE ══════════
@@ -421,7 +439,23 @@ function todayFormatted(){
 // until "Generate Estimate" is clicked.
 window.addEventListener("message", (e) => {
   const data = e.data;
-  if (!data || data.source !== "gh_portal" || data.type !== "presite_data") return;
+  if (!data || data.source !== "gh_portal") return;
+
+  // The portal sends this right before presite_data, so the builder always
+  // starts blank for the newly-opened work order instead of showing
+  // whatever was left over from the previous job.
+  if (data.type === "clear_estimate") {
+    clearAllSilent();
+    setTodayDate();
+    setInd("Ready for new job");
+    return;
+  }
+
+  if (data.type !== "presite_data") return;
+
+  // Always show today's date for a newly generated estimate (the portal's
+  // date string isn't in the yyyy-mm-dd shape this date input needs).
+  setTodayDate();
 
   const c = data.customer || {};
   if (c.name) sv("f_client", c.name);
@@ -470,6 +504,7 @@ window.addEventListener("message", (e) => {
 
 // ══════════ INIT ══════════
 loadState();
+setTodayDate();
 recalc();
 
 // Save on any input change across the whole page
@@ -478,4 +513,3 @@ document.addEventListener("change",()=>save());
 </script>
 </body>
 </html>
-
