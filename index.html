@@ -461,10 +461,12 @@ window.addEventListener("message", (e) => {
   if (c.name) sv("f_client", c.name);
   if (c.address) sv("f_addr", c.address);
 
-  // Build a combined, human-readable notes block from description/issues/disclaimers.
-  // This is a starting point only — the notes field remains a normal editable textarea.
+  // Build a combined, human-readable notes block from potential issues and
+  // disclaimers only — the job description/notes are intentionally left out,
+  // since "Additional Notes" here is meant for caveats the customer should
+  // see, not internal job notes. This is a starting point only — the notes
+  // field remains a normal editable textarea.
   let notesParts = [];
-  if (data.description) notesParts.push(data.description.trim());
   if (data.issues && data.issues.length) {
     notesParts.push("Potential issues:\n" + data.issues.map(t => "- " + t).join("\n"));
   }
@@ -478,18 +480,20 @@ window.addEventListener("message", (e) => {
   // clean number, so we can't always populate a numeric $/ea reliably. We pull
   // out a leading dollar number when there is one and leave it at 0 otherwise —
   // either way the price/qty fields stay fully editable so it can be finalized by hand.
+  // Price information only ever lands in Description/Qty/Unit Price/Subtotal —
+  // the Details field is left blank (not filled with the raw price text) so it
+  // stays free for whatever note the person adds themselves.
   const addAsLine = (item) => {
     const id = ++customCount;
     const row = document.createElement("div");
     row.className = "cust-row"; row.id = `crow_${id}`;
     const priceMatch = (item.price || "").match(/[\d,]+(\.\d+)?/);
     const priceVal = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, "")) : 0;
-    const detText = item.price || "";
     row.innerHTML = `
       <div class="cust-desc"><span>Description</span><input type="text" id="cdesc_${id}" oninput="save();recalc()" value="${(item.item||"").replace(/"/g,'&quot;')}"></div>
       <div class="inp-grp"><span>Qty</span><input type="number" id="cqty_${id}" value="1" min="1" onchange="save();recalc()"></div>
       <div class="inp-grp"><span>$ / ea</span><input type="number" id="cprice_${id}" value="${priceVal}" onchange="save();recalc()"></div>
-      <div class="cust-det"><span>Details (optional)</span><input type="text" id="cdet_${id}" oninput="save();recalc()" value="${detText.replace(/"/g,'&quot;')}"></div>
+      <div class="cust-det"><span>Details (optional)</span><input type="text" id="cdet_${id}" oninput="save();recalc()"></div>
       <button class="rm-btn" onclick="removeCustom(${id})">✕</button>`;
     document.getElementById("customLines").appendChild(row);
   };
