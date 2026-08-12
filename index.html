@@ -1016,13 +1016,15 @@ try {
   }
 } catch (e) { console.error(e); }
 
-function saveChangeOrderToHistory(client, conum, codate, revisedTotal, netChange) {
+function saveChangeOrderToHistory(client, conum, codate, revisedTotal, netChange, docHtml, fileBase) {
   if (!db) return;
   db.collection("changeOrders").add({
     client: client || "(No client name)",
     conum: conum || "",
     codate: codate || "",
     revisedTotal, netChange,
+    docHtml: docHtml || "",
+    fileBase: fileBase || "change_order",
     createdBy: currentUser ? currentUser.displayName : "",
     savedAt: firebase.firestore.FieldValue.serverTimestamp()
   }).catch(err => console.error("Save change order to history failed:", err));
@@ -1045,7 +1047,7 @@ function renderCoHistory() {
     return;
   }
   wrap.innerHTML = coHistoryCache.map(h => `
-    <div class="co-hist-card">
+    <div class="co-hist-card" onclick="viewCoHistoryEntry('${h.id}')" style="cursor:pointer">
       <div class="hist-main">
         <div class="hist-client">${coEsc(h.client)} ${h.conum ? "&mdash; #" + coEsc(h.conum) : ""}</div>
         <div class="hist-meta">${coEsc(h.codate || "")}${h.createdBy ? " \u00b7 " + coEsc(h.createdBy) : ""} \u00b7 net ${h.netChange >= 0 ? "+" : "-"}$${Math.abs(h.netChange).toFixed(2)}</div>
@@ -1053,6 +1055,16 @@ function renderCoHistory() {
       <div class="hist-total">$${h.revisedTotal.toFixed(2)}</div>
       ${isAdmin ? `<button class="hist-del-btn" onclick="deleteCoHistoryEntry('${h.id}', event)">Delete</button>` : ""}
     </div>`).join("");
+}
+
+function viewCoHistoryEntry(id) {
+  const entry = coHistoryCache.find(h => h.id === id);
+  if (!entry) return;
+  if (!entry.docHtml) {
+    alert("This change order was generated before viewing was supported, so it can't be reopened. You can still see its summary in the list.");
+    return;
+  }
+  openDocumentWindow(entry.docHtml, entry.fileBase || "change_order", "Change Order - Good &amp; Handy");
 }
 
 function selectHistoryEntry(id) {
@@ -1428,18 +1440,23 @@ function showChangeOrder() {
       </div>
     </div>`;
 
-  saveChangeOrderToHistory(client, conum === "\u2014" ? "" : conum, codate, newTotal, netChange);
+  const fileBase = ((client || "change_order").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "change_order") + "_change_order";
+  saveChangeOrderToHistory(client, conum, codate, newTotal, netChange, docHtml, fileBase);
 
+  openDocumentWindow(docHtml, fileBase, "Change Order - Good &amp; Handy");
+}
+
+// ══════════ SHARED: OPEN A GENERATED DOCUMENT IN A NEW TAB ══════════
+function openDocumentWindow(docHtml, fileBase, pageTitle) {
   const win = window.open("", "_blank");
-  if (!win) { alert("Please allow pop-ups for this site to view the change order."); return; }
+  if (!win) { alert("Please allow pop-ups for this site to view the document."); return; }
 
   const cssText = document.querySelector("style").innerHTML;
-  const fileBase = (client || "change_order").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "change_order";
 
   const pageHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Change Order - Good &amp; Handy</title>
+<title>${pageTitle}</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>${cssText}
 body{padding-bottom:40px;background:#fff}
@@ -1449,7 +1466,7 @@ body{padding-bottom:40px;background:#fff}
   <div class="pdf-toolbar">
     <button class="pdf-btn" id="downloadPdfBtn">Download PDF</button>
   </div>
-  <div class="pdf-hint">Tap Download PDF to save this change order</div>
+  <div class="pdf-hint">Tap Download PDF to save this document</div>
   <div class="est-doc" id="pdfTarget">${docHtml}</div>
   <script>
     document.getElementById("downloadPdfBtn").addEventListener("click", function(){
@@ -1460,7 +1477,7 @@ body{padding-bottom:40px;background:#fff}
       const el = document.getElementById("pdfTarget");
       const opt = {
         margin: 0.3,
-        filename: "${fileBase}_change_order.pdf",
+        filename: "${fileBase}.pdf",
         image: { type: "jpeg", quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" }
