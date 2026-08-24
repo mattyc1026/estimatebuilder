@@ -1383,6 +1383,14 @@ window.addEventListener("message", (e) => {
     return;
   }
 
+  // The portal opens this app for either the Estimate or the Invoice tab;
+  // this tells the app which one the visitor actually asked for so it
+  // doesn't sit on the Estimate tab when Invoice was requested.
+  if (data.type === "switch_tab") {
+    if (data.tab) switchTab(data.tab);
+    return;
+  }
+
   if (data.type !== "presite_data") return;
 
   // Always show today's date for a newly generated estimate (the portal's
