@@ -813,6 +813,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
   padding:0!important;
   box-shadow:none!important;
 }
+/* Hold the desktop layout during capture so a phone-width window can't
+   reshape the document halfway through rendering. */
+.est-doc.pdf-render .est-sig-row{flex-direction:row!important;gap:24px!important}
+.est-doc.pdf-render .sig-date{width:110px!important;flex-shrink:0!important}
+.est-doc.pdf-render .inv-header-row{flex-direction:row!important}
+/* Stop a phone-width window from squeezing the page while it's captured. */
+body.pdf-capturing{padding:0!important;margin:0!important;background:#fff!important;min-width:7.5in!important}
+body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!important}
 
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1414,8 +1422,7 @@ function showEstimate(){
       </div>
     </div>`;
 
-  const fileBase = (client||"estimate").toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"") || "estimate";
-  openDocumentWindow(docHtml, fileBase + "_estimate", "Estimate - Good & Handy");
+  openDocumentWindow(docHtml, docFileName(client, "estimate"), "Estimate - Good & Handy");
 }
 
 function fmtDate(val){
@@ -2257,13 +2264,21 @@ function showChangeOrder() {
       </div>
     </div>`;
 
-  const fileBase = ((client || "change_order").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "change_order") + "_change_order";
+  const fileBase = docFileName(client, "change_order");
   const revisedItems = kept.concat(added).map(i => ({
     desc: i.desc || "", det: i.det || "", qty: i.qty, price: i.price, hide: !!i.hide
   }));
   saveChangeOrderToHistory(client, conum, codate, newTotal, netChange, docHtml, fileBase, coCust, revisedItems);
 
   openDocumentWindow(docHtml, fileBase, "Change Order - Good &amp; Handy");
+}
+
+// Builds first_last_estimate.pdf / first_last_change_order.pdf / first_last_invoice.pdf
+function docFileName(client, suffix) {
+  const base = (client || "").toLowerCase()
+                 .replace(/[^a-z0-9]+/g, "_")
+                 .replace(/^_+|_+$/g, "");
+  return (base || "good_and_handy") + "_" + suffix;
 }
 
 // ══════════ SHARED: OPEN A GENERATED DOCUMENT IN A NEW TAB ══════════
@@ -2303,8 +2318,16 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
       btn.textContent = "Preparing PDF...";
       const el = document.getElementById("pdfTarget");
       el.classList.add("pdf-render");
+      document.body.classList.add("pdf-capturing");
+      // Measure the document AFTER the capture geometry is applied. These get
+      // handed to html2canvas so the canvas is exactly the document's size --
+      // otherwise it sizes itself from the browser window and the finished PDF
+      // only fills part of the sheet.
+      const capW = el.offsetWidth;
+      const capH = Math.max(el.offsetHeight, el.scrollHeight);
       const done = function(){
         el.classList.remove("pdf-render");
+        document.body.classList.remove("pdf-capturing");
         btn.disabled = false;
         btn.textContent = original;
       };
@@ -2312,7 +2335,17 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
         margin: 0.5,
         filename: "${fileBase}.pdf",
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, windowWidth: 1100 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+          scrollX: 0, scrollY: 0,
+          x: 0, y: 0,
+          width: capW,
+          height: capH,
+          windowWidth: capW,
+          windowHeight: capH
+        },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         pagebreak: {
           mode: ["css", "legacy"],
@@ -2894,12 +2927,10 @@ function inv_generateInvoice() {
   saveInvoiceToHistory(invoiceNum, invoiceInnerHTML);
 
   const clientName = document.getElementById('clientName').value;
-  const fileBase = "Invoice-" + ((invoiceNum || clientName || 'Good-and-Handy')
-                     .replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'Good-and-Handy');
 
   openDocumentWindow(
     `<div id="invoice">${invoiceInnerHTML}</div>`,
-    fileBase,
+    docFileName(clientName, "invoice"),
     "Invoice " + inv_esc(invoiceNum || '') + " - Good & Handy",
     document.getElementById('invStyle').innerHTML
   );
