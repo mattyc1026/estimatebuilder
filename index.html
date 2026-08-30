@@ -162,6 +162,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
 .hist-total{font-family:'DM Serif Display',serif;font-size:1.1rem;color:var(--green);white-space:nowrap}
 .hist-empty{font-size:0.85rem;color:var(--muted);font-style:italic;padding:10px 0}
 
+/* ── Collapsed history disclosure (Estimate tab) ──
+   The Estimate tab is where a job normally starts from scratch, so its
+   history stays tucked behind a link rather than taking up the top of the
+   tab the way it does on Change Order and Invoice, where picking an
+   existing estimate is the first real step. */
+.hist-disclosure{display:flex;align-items:center;gap:8px;width:100%;padding:14px 16px;
+  border:none;background:none;font:inherit;font-family:'DM Sans',sans-serif;font-weight:700;
+  font-size:0.88rem;color:var(--blue);cursor:pointer;text-align:left;line-height:1.3}
+.hist-disclosure:hover{color:var(--navy)}
+.hist-disclosure .hd-caret{flex:0 0 auto;font-size:0.7rem;transition:transform 0.15s ease}
+.hist-disclosure[aria-expanded="true"]{color:var(--navy);border-bottom:2px solid var(--sky)}
+.hist-disclosure[aria-expanded="true"] .hd-caret{transform:rotate(90deg)}
+.hist-disclosure .hd-count{margin-left:auto;font-weight:600;font-size:0.72rem;color:var(--muted)}
+
 /* ── History pagination ── */
 .hist-pager{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
   gap:6px;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
@@ -904,10 +918,15 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
 <div id="estimateTab" class="tabpanel active">
 <div class="wrap">
 
-  <!-- Select from History -->
+  <!-- Select from History (collapsed by default) -->
   <div class="card">
-    <div class="card-head">Select an Estimate <small id="estHistCount">0 saved</small></div>
-    <div class="card-body">
+    <button type="button" class="hist-disclosure" id="estHistToggle" aria-expanded="false"
+            aria-controls="estHistBody" onclick="toggleEstHistory()">
+      <span class="hd-caret" aria-hidden="true">&#9656;</span>
+      <span>Load from History</span>
+      <small class="hd-count" id="estHistCount">0 saved</small>
+    </button>
+    <div class="card-body" id="estHistBody" style="display:none">
       <div id="estHistSyncStatus" style="font-size:0.72rem;color:#c0392b;margin-bottom:8px"></div>
       <div id="estHistTools"></div>
       <div id="estHistList"></div>
@@ -2197,6 +2216,18 @@ function renderHistory() {
 // edited, or regenerated.
 let selectedEstHistId = null;
 
+// Opens and closes the collapsed history section on the Estimate tab. The
+// list is rendered on open so a history that synced while it was closed is
+// up to date the moment it appears.
+function toggleEstHistory(force) {
+  const btn = document.getElementById("estHistToggle");
+  const body = document.getElementById("estHistBody");
+  if (!btn || !body) return;
+  const open = (force === undefined) ? btn.getAttribute("aria-expanded") !== "true" : !!force;
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+  body.style.display = open ? "" : "none";
+  if (open) renderEstimateHistory();
+}
 function renderEstimateHistory() {
   histRenderList("estHist", (h, selMode, checked) => `
     <div class="hist-card ${checked ? "sel-on" : ""} ${!selMode && h.id === selectedEstHistId ? "selected" : ""}"
@@ -2245,6 +2276,7 @@ function loadEstimateFromHistory(id) {
   });
 
   renderEstimateHistory();
+  toggleEstHistory(false);
   save(); recalc();
   setInd("Loaded saved estimate for " + (entry.client || "this client"));
 }
