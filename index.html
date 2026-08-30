@@ -846,23 +846,59 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
   .est-doc{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
 }
 /* Applied only while html2pdf is capturing, so the PDF is always a full
-   8.5x11 page even when the document is being viewed on a phone. */
+   8.5x11 page even when the document is being viewed on a phone.
+   720px is the 7.5in printable width of a letter page at 0.5in margins.
+   min-height is deliberately left alone here so the page count follows the
+   content instead of forcing a near-empty trailing page. */
 .est-doc.pdf-render{
-  width:7.5in!important;
+  width:720px!important;
   max-width:none!important;
-  min-height:10in!important;
+  min-width:720px!important;
+  min-height:0!important;
   margin:0!important;
   padding:0!important;
   box-shadow:none!important;
+  overflow:visible!important;
 }
+/* Nothing inside the document may render wider than the printable area, or
+   html2canvas captures it and the overflow lands off the edge of the sheet. */
+.est-doc.pdf-render *{max-width:100%!important}
+.est-doc.pdf-render img{height:auto}
+.est-doc.pdf-render .est-table,
+.est-doc.pdf-render .inv-items{width:100%!important;table-layout:fixed!important}
+.est-doc.pdf-render .est-table td,
+.est-doc.pdf-render .est-table th,
+.est-doc.pdf-render .inv-items td,
+.est-doc.pdf-render .inv-items th{overflow-wrap:break-word;word-break:normal}
+/* The money columns must stay on one line, so give them a reserved width
+   rather than letting a long description squeeze them off the page.
+   table-layout:fixed splits columns evenly unless told otherwise, so the
+   three narrow columns are sized and Description takes the remainder. */
+.est-doc.pdf-render .est-table td.r,
+.est-doc.pdf-render .est-table th.r,
+.est-doc.pdf-render .inv-items td:not(.col-desc),
+.est-doc.pdf-render .inv-items th:not(.col-desc){white-space:nowrap!important}
+.est-doc.pdf-render .est-table tr > *:nth-child(1){width:auto}
+.est-doc.pdf-render .est-table tr > *:nth-child(2){width:70px}
+.est-doc.pdf-render .est-table tr > *:nth-child(3){width:95px}
+.est-doc.pdf-render .est-table tr > *:nth-child(4){width:100px}
+.est-doc.pdf-render .est-table td[colspan]{width:auto}
 /* Hold the desktop layout during capture so a phone-width window can't
    reshape the document halfway through rendering. */
 .est-doc.pdf-render .est-sig-row{flex-direction:row!important;gap:24px!important}
 .est-doc.pdf-render .sig-date{width:110px!important;flex-shrink:0!important}
 .est-doc.pdf-render .inv-header-row{flex-direction:row!important}
 /* Stop a phone-width window from squeezing the page while it's captured. */
-body.pdf-capturing{padding:0!important;margin:0!important;background:#fff!important;min-width:7.5in!important}
+body.pdf-capturing{padding:0!important;margin:0!important;background:#fff!important;
+  width:720px!important;min-width:720px!important;overflow-x:visible!important}
 body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!important}
+/* The offscreen capture stage sits at the top-left of the document at a fixed
+   720px so html2canvas always sees a full-page-width layout. It is clipped out
+   of view rather than hidden, because display:none or visibility:hidden would
+   leave it with no geometry for html2canvas to measure. */
+#pdfStage{position:absolute!important;left:0!important;top:0!important;
+  width:720px!important;min-width:720px!important;background:#fff!important;
+  clip-path:inset(0 0 100% 0);pointer-events:none}
 
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -1498,7 +1534,7 @@ function showEstimate(){
   const cust=readClient("f_");
   const client=cust.name,date=fmtDate(v("f_date")),
         duration=v("f_duration"),notes=v("f_notes");
-  saveEstimateToHistory(client, v("f_date"), date, cust, duration, lines, total);
+  saveEstimateToHistory(client, v("f_date"), date, cust, duration, lines, total, notes);
   const fv2=(val,maxW)=>`<div class="efv"${maxW?` style="max-width:${maxW}"`:""}>${val}</div>`;
 
   const tableRows=lines.map(l=>{
@@ -1856,7 +1892,7 @@ function setHistSyncStatus(msg) {
   });
 }
 
-function saveEstimateToHistory(client, rawDate, formattedDate, cust, duration, lines, total) {
+function saveEstimateToHistory(client, rawDate, formattedDate, cust, duration, lines, total, notes) {
   if (!db) { setHistSyncStatus("Firebase isn't configured yet, so this estimate was NOT saved to shared history."); return; }
   cust = cust || {};
   const entry = {
@@ -1870,6 +1906,10 @@ function saveEstimateToHistory(client, rawDate, formattedDate, cust, duration, l
     phone: cust.phone || "",
     email: cust.email || "",
     duration: duration || "",
+    // Additional Notes belongs with the estimate, not just with the printed
+    // copy. Without it, reloading an estimate from history came back with an
+    // empty Notes box and the note was silently lost.
+    notes: notes || "",
     total: total,
     items: lines.map(l => ({
       desc: l.name, qty: l.qty, price: l.unit, sub: l.sub, det: l.det || ""
@@ -2260,6 +2300,7 @@ function loadEstimateFromHistory(id) {
   sv("f_date", entry.rawDate);
   if (!v("f_date")) setTodayDate();
   sv("f_duration", entry.duration);
+  sv("f_notes", entry.notes);
 
   (entry.items || []).forEach(it => {
     const cid = ++customCount;
@@ -2752,7 +2793,15 @@ function openDocumentWindow(docHtml, fileBase, pageTitle, extraCss) {
   const win = window.open("", "_blank");
   if (!win) { alert("Please allow pop-ups for this site to view the document."); return; }
 
-  const cssText = document.querySelector("style").innerHTML + "\n" + (extraCss || "");
+  // The app's CSS lives in more than one <style> block. This used to copy
+  // only the first one, so the generated document window was missing every
+  // rule in the second block, including all of the .est-doc page geometry,
+  // the .pdf-render capture rules and the entire invoice stylesheet. That is
+  // why the PDF came out off-center with its right edge cut off. Take all of
+  // them, in document order.
+  const cssText = Array.from(document.querySelectorAll("style"))
+                       .map(s => s.innerHTML).join("\n")
+                  + "\n" + (extraCss || "");
 
   const pageHtml = `<!DOCTYPE html>
 <html lang="en"><head><meta charset="UTF-8">
@@ -2783,16 +2832,32 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
       const original = btn.textContent;
       btn.textContent = "Preparing PDF...";
       const el = document.getElementById("pdfTarget");
-      el.classList.add("pdf-render");
+      // Capture from a dedicated offscreen copy that is laid out at a fixed
+      // 720px, instead of from the on-screen document. The on-screen document
+      // is only ever as wide as the browser window, so on a phone it was being
+      // laid out at ~390px and everything past that width, the Subtotal
+      // column and the right-hand side of the paragraphs, fell outside the
+      // captured canvas. A detached stage has no such dependency.
+      const stage = document.createElement("div");
+      stage.id = "pdfStage";
+      stage.style.cssText = "position:absolute;left:0;top:0;z-index:-1;" +
+                            "width:" + CAP_W + "px;background:#fff;";
+      const cap = el.cloneNode(true);
+      cap.id = "pdfTarget_capture";
+      cap.classList.add("pdf-render");
+      stage.appendChild(cap);
+      document.body.appendChild(stage);
       document.body.classList.add("pdf-capturing");
-      // Measure the document AFTER the capture geometry is applied. These get
-      // handed to html2canvas so the canvas is exactly the document's size --
-      // otherwise it sizes itself from the browser window and the finished PDF
-      // only fills part of the sheet.
-      const capW = el.offsetWidth;
-      const capH = Math.max(el.offsetHeight, el.scrollHeight);
+      // The printable area of a letter page at 0.5in margins is 7.5in, which
+      // is 720px at the 96dpi html2canvas assumes. Pin the capture to that
+      // fixed number rather than measuring the live element: on a phone the
+      // measured value follows the browser window, and html2canvas was then
+      // cropping the canvas to that narrower box, which is what sliced the
+      // Subtotal column, the estimate total and the right edge of the
+      // paragraphs off the finished PDF.
+      const CAP_W = 720;
       const done = function(){
-        el.classList.remove("pdf-render");
+        if (stage.parentNode) stage.parentNode.removeChild(stage);
         document.body.classList.remove("pdf-capturing");
         btn.disabled = false;
         btn.textContent = original;
@@ -2806,11 +2871,26 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
           useCORS: true,
           backgroundColor: "#ffffff",
           scrollX: 0, scrollY: 0,
-          x: 0, y: 0,
-          width: capW,
-          height: capH,
-          windowWidth: capW,
-          windowHeight: capH
+          // No x/y/width/height here on purpose. Those crop the canvas to a
+          // fixed box. Letting html2canvas measure the element itself means
+          // the canvas always contains the whole document, and windowWidth
+          // below still guarantees it is laid out at full page width.
+          windowWidth: CAP_W,
+          // Re-assert the capture width inside html2canvas's cloned document,
+          // so a narrow phone viewport can't reshape the layout mid-render.
+          onclone: function(doc){
+            const c = doc.getElementById("pdfTarget_capture");
+            if (c) {
+              c.style.width = CAP_W + "px";
+              c.style.minWidth = CAP_W + "px";
+              c.style.maxWidth = "none";
+            }
+            if (doc.body) {
+              doc.body.style.width = CAP_W + "px";
+              doc.body.style.minWidth = CAP_W + "px";
+              doc.body.style.margin = "0";
+            }
+          }
         },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
         pagebreak: {
@@ -2819,7 +2899,7 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
                   ".inv-totals", ".inv-totals-row", "tr"]
         }
       };
-      html2pdf().set(opt).from(el).save().then(done).catch(function(){
+      html2pdf().set(opt).from(cap).save().then(done).catch(function(){
         done();
         alert("PDF generation failed. You can still use your browser's Print > Save as PDF option.");
       });
