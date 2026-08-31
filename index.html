@@ -127,6 +127,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
 .est-uline{border-bottom:1.5px solid #111;min-height:22px;margin-bottom:8px;padding-left:4px;font-size:0.88rem}
 .est-disclaimer{font-size:0.78rem;color:#444;font-style:italic;line-height:1.6;margin-bottom:8px}
 .est-notes-txt{font-size:0.85rem;color:#222;line-height:1.6;margin-bottom:8px}
+.est-list{font-size:0.85rem;color:#222;line-height:1.6;margin:0 0 8px 0;padding-left:20px}
+.est-list li{margin-bottom:5px;page-break-inside:avoid}
 .est-sig-sec{margin-top:28px}
 .est-sig-title{font-weight:700;font-size:0.95rem;margin-bottom:10px}
 .est-consent{font-size:0.82rem;font-weight:600;margin-bottom:18px;line-height:1.6;color:#111}
@@ -991,6 +993,27 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
     </div>
   </div>
 
+  <!-- Issues / Exclusions / Disclaimers.
+       One item per line. Each section only prints on the estimate when it
+       has content, so a job with no exclusions shows no exclusions heading. -->
+  <div class="card">
+    <div class="card-head">Issues, Exclusions &amp; Disclaimers</div>
+    <div class="card-body">
+      <div class="field-row">
+        <label>Potential Unforeseen Issues <span style="font-weight:400;color:var(--mid)">(one per line)</span></label>
+        <textarea id="f_issues" rows="5" oninput="save()"></textarea>
+      </div>
+      <div class="field-row">
+        <label>Exclusions, What Is Not Included <span style="font-weight:400;color:var(--mid)">(one per line)</span></label>
+        <textarea id="f_exclusions" rows="5" oninput="save()"></textarea>
+      </div>
+      <div class="field-row">
+        <label>Disclaimers <span style="font-weight:400;color:var(--mid)">(one per line)</span></label>
+        <textarea id="f_disclaimers" rows="6" oninput="save()"></textarea>
+      </div>
+    </div>
+  </div>
+
   <!-- Custom Line Items -->
   <div class="card">
     <div class="card-head">Line Items</div>
@@ -1338,7 +1361,7 @@ function clearAll() {
 function clearAllSilent() {
   // Job info
   ["f_client","f_date","f_addr","f_city","f_state","f_zip","f_phone","f_email",
-   "f_duration","f_notes"].forEach(id=>{
+   "f_duration","f_notes","f_issues","f_exclusions","f_disclaimers"].forEach(id=>{
     const el=document.getElementById(id); if(el) el.value="";
   });
   // Custom
@@ -1372,7 +1395,8 @@ function save() {
       const state={
         job:{client:v("f_client"),date:v("f_date"),addr:v("f_addr"),city:v("f_city"),state:v("f_state"),
              zip:v("f_zip"),phone:v("f_phone"),email:v("f_email"),
-             duration:v("f_duration"),notes:v("f_notes")},
+             duration:v("f_duration"),notes:v("f_notes"),
+             issues:v("f_issues"),exclusions:v("f_exclusions"),disclaimers:v("f_disclaimers")},
         custom:[],
       };
       // Custom
@@ -1504,6 +1528,7 @@ function loadState() {
       sv("f_city",s.job.city);sv("f_state",s.job.state);sv("f_zip",s.job.zip);
       sv("f_phone",s.job.phone);sv("f_email",s.job.email);
       sv("f_duration",s.job.duration);sv("f_notes",s.job.notes);
+      sv("f_issues",s.job.issues);sv("f_exclusions",s.job.exclusions);sv("f_disclaimers",s.job.disclaimers);
     }
     // Custom
     if(s.custom&&s.custom.length){
@@ -1565,6 +1590,9 @@ function showEstimate(){
     <div class="est-sec" style="margin-top:20px">Estimated Duration</div>
     <div class="est-uline">${duration}</div>
     ${notes?`<div class="est-sec">Additional Notes</div><div class="est-notes-txt">${notes}</div>`:""}
+    ${docListSection("Potential Unforeseen Issues", v("f_issues"))}
+    ${docListSection("Exclusions", v("f_exclusions"))}
+    ${docListSection("Disclaimers", v("f_disclaimers"))}
     <div class="est-sig-sec">
       <div class="est-sig-title">Approval &amp; Acceptance</div>
       <div class="est-consent">I agree to the scope of work, estimated costs, and project details outlined above. I acknowledge that this estimate is subject to change due to unforeseen conditions or necessary modifications. Any changes that affect the scope, cost, or project details will constitute a formal adjustment to this estimate, which I agree to honor upon acknowledgment.</div>
@@ -1579,6 +1607,21 @@ function showEstimate(){
     </div>`;
 
   openDocumentWindow(docHtml, docFileName(client, "estimate"), "Estimate - Good & Handy");
+}
+
+// Renders a bulleted section on the printed document. Returns an empty
+// string when the field is blank, so no empty heading is ever printed.
+function docListSection(title, raw){
+  const items=(raw||"").split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+  if(!items.length) return "";
+  const lis=items.map(t=>`<li>${escHtml(t)}</li>`).join("");
+  return `<div class="est-sec" style="margin-top:20px">${escHtml(title)}</div>`+
+         `<ul class="est-list">${lis}</ul>`;
+}
+function escHtml(s){
+  return String(s==null?"":s)
+    .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 function fmtDate(val){
@@ -1649,19 +1692,14 @@ window.addEventListener("message", (e) => {
   sv("f_phone", c.phone || c.altPhone || "");
   sv("f_email", c.email || "");
 
-  // Build a combined, human-readable notes block from potential issues and
-  // disclaimers only, the job description/notes are intentionally left out,
-  // since "Additional Notes" here is meant for caveats the customer should
-  // see, not internal job notes. This is a starting point only, the notes
-  // field remains a normal editable textarea.
-  let notesParts = [];
-  if (data.issues && data.issues.length) {
-    notesParts.push("Potential issues:\n" + data.issues.map(t => "- " + t).join("\n"));
-  }
-  if (data.disclaimers && data.disclaimers.length) {
-    notesParts.push("Disclaimers:\n" + data.disclaimers.map(t => "- " + t).join("\n"));
-  }
-  if (notesParts.length) sv("f_notes", notesParts.join("\n\n"));
+  // Issues, exclusions and disclaimers each land in their own field and print
+  // as their own section on the estimate. They no longer get merged into
+  // Additional Notes, which is left free for whatever the estimator wants to
+  // add. Every one of these stays a normal editable textarea.
+  const toLines = arr => (arr || []).map(t => String(t).trim()).filter(Boolean).join("\n");
+  sv("f_issues",      toLines(data.issues));
+  sv("f_exclusions",  toLines(data.exclusions));
+  sv("f_disclaimers", toLines(data.disclaimers));
 
   // Labor + materials come in as {item, price} where price is often a range or
   // free-text note (e.g. "$150-$400" or "included in job labor") rather than a
@@ -1671,18 +1709,38 @@ window.addEventListener("message", (e) => {
   // Price information only ever lands in Description/Qty/Unit Price/Subtotal,
   // the Details field is left blank (not filled with the raw price text) so it
   // stays free for whatever note the person adds themselves.
+  // Each incoming line may carry qty, unitPrice and hideDetails. The portal
+  // sends every labor detail line with hideDetails set, so the customer sees
+  // the scope wording without a price beside it, followed by one visible
+  // "Labor" summary line carrying the total. Materials arrive as a single
+  // already-marked-up, already-taxed line. Older payloads that only carry
+  // {item, price} still work: qty falls back to 1 and the price string is
+  // parsed for a leading dollar figure.
   const addAsLine = (item) => {
     const id = ++customCount;
     const row = document.createElement("div");
     row.className = "cust-row"; row.id = `crow_${id}`;
-    const priceMatch = (item.price || "").match(/[\d,]+(\.\d+)?/);
-    const priceVal = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, "")) : 0;
+
+    let qtyVal = Number(item.qty);
+    if (!isFinite(qtyVal) || qtyVal <= 0) qtyVal = 1;
+
+    let priceVal = Number(item.unitPrice);
+    if (!isFinite(priceVal) || priceVal === 0) {
+      const priceMatch = String(item.price || "").match(/[\d,]+(\.\d+)?/);
+      const parsed = priceMatch ? parseFloat(priceMatch[0].replace(/,/g, "")) : 0;
+      // A price string is a line total, so divide it back out to a unit price.
+      priceVal = qtyVal > 0 ? parsed / qtyVal : parsed;
+    }
+    priceVal = Math.round(priceVal * 100) / 100;
+
+    const hide = item.hideDetails === true || item.hide === true;
+
     row.innerHTML = `
       <div class="cust-desc"><span>Description</span><input type="text" id="cdesc_${id}" oninput="save();recalc()" value="${(item.item||"").replace(/"/g,'&quot;')}"></div>
-      <div class="inp-grp"><span>Qty</span><input type="number" id="cqty_${id}" value="1" min="1" onchange="save();recalc()"></div>
-      <div class="inp-grp"><span>$ / ea</span><input type="number" id="cprice_${id}" value="${priceVal}" onchange="save();recalc()"></div>
+      <div class="inp-grp"><span>Qty</span><input type="number" id="cqty_${id}" value="${qtyVal}" min="0" step="any" onchange="save();recalc()"></div>
+      <div class="inp-grp"><span>$ / ea</span><input type="number" id="cprice_${id}" value="${priceVal}" step="any" onchange="save();recalc()"></div>
       <div class="cust-det"><span>Details (optional)</span><input type="text" id="cdet_${id}" oninput="save();recalc()"></div>
-      <label class="hide-toggle"><input type="checkbox" id="chide_${id}" onchange="save();recalc()"> Hide qty, unit price &amp; subtotal on estimate</label>
+      <label class="hide-toggle"><input type="checkbox" id="chide_${id}" onchange="save();recalc()" ${hide?"checked":""}> Hide qty, unit price &amp; subtotal on estimate</label>
       <button class="rm-btn" onclick="removeCustom(${id})">✕</button>`;
     document.getElementById("customLines").appendChild(row);
   };
