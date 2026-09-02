@@ -2913,28 +2913,21 @@ body.pdf-capturing .pdf-hint{display:none!important}
       const original = btn.textContent;
       btn.textContent = "Preparing PDF...";
       const el = document.getElementById("pdfTarget");
-      // The printable area of a letter page at 0.5in margins is 7.5in, which
-      // is 720px at the 96dpi html2canvas assumes. Pin the capture to that
-      // fixed number rather than measuring the live element: on a phone the
-      // measured value follows the browser window, and html2canvas was then
-      // cropping the canvas to that narrower box, which is what sliced the
-      // Subtotal column, the estimate total and the right edge of the
-      // paragraphs off the finished PDF.
-      // NOTE: this must be declared before the offscreen stage below, which
-      // reads it. It used to sit further down and the const was still in its
-      // temporal dead zone at that point, so every click threw a
-      // ReferenceError and no PDF was ever produced.
-      const CAP_W = 720;
+      // The capture width, 720px, is the 7.5in printable area of a letter
+      // page at 0.5in margins, at the 96dpi html2canvas assumes. It is set in
+      // CSS by the .pdf-render class rather than passed to html2canvas as an
+      // option, so that the real element and html2canvas's internal clone are
+      // laid out identically. See the html2canvas options below for why that
+      // matters.
+      //
       // Capture the live document element, not a detached clone on an
       // offscreen stage. The stage was introduced to stop a narrow phone
       // window reshaping the layout mid-render, but .pdf-render already pins
       // the element to 720px on its own, and an absolutely positioned,
       // clip-path'd, negative-z-index container gave html2canvas a bounding
-      // box that did not line up with what it was drawing. That mismatch is
-      // what shifted the whole document left and sliced the Description
-      // column off the sheet. An element sitting in normal flow measures
-      // correctly, and overflowing a phone viewport horizontally is fine
-      // because we scroll to the origin first.
+      // box that did not line up with what it was drawing. An element sitting
+      // in normal flow measures correctly, and overflowing a phone viewport
+      // horizontally is fine because we scroll to the origin first.
       const cap = el;
       const prevScrollX = window.scrollX, prevScrollY = window.scrollY;
       window.scrollTo(0, 0);
@@ -2955,31 +2948,31 @@ body.pdf-capturing .pdf-hint{display:none!important}
           scale: 2,
           useCORS: true,
           backgroundColor: "#ffffff",
-          scrollX: 0, scrollY: 0,
-          // No x/y/width/height here on purpose. Those crop the canvas to a
-          // fixed box. Letting html2canvas measure the element itself means
-          // the canvas always contains the whole document, and windowWidth
-          // below still guarantees it is laid out at full page width.
-          windowWidth: CAP_W,
-          // Re-assert the capture width inside html2canvas's cloned document,
-          // so a narrow phone viewport can't reshape the layout mid-render.
-          // Only the document element is pinned. Forcing the cloned body to
-          // 720px as well is what previously made the canvas wider than the
-          // content and squeezed everything into the left of the page.
+          // No windowWidth, no scrollX/scrollY, no x/y/width/height.
+          //
+          // This is the fix for the left-clipping. html2canvas takes the crop
+          // rectangle from the REAL element's bounding rect in THIS document,
+          // then renders a clone inside an iframe whose width is windowWidth.
+          // Those two have to agree. Setting windowWidth to 720 while the
+          // actual browser window was ~1560px wide broke that agreement: in
+          // the real page the centred .est-doc sits at roughly x=420, but in
+          // a 720px-wide clone it sits at x=0. html2canvas still cropped
+          // starting at x=420, so the first 420px of the document, the whole
+          // Description column and the left edge of every paragraph and
+          // signature line, were cut off and the remainder was pushed to the
+          // left margin of the sheet. Leaving windowWidth at its default
+          // keeps the clone laid out exactly like the original, so the crop
+          // rectangle lines up.
+          //
+          // The 720px capture width is still enforced, but through CSS on the
+          // element itself (.pdf-render), which applies identically in the
+          // original and the clone. On a narrow phone the element simply
+          // overflows the viewport horizontally, which is harmless: its own
+          // bounding rect is still 720px wide and still correct.
           onclone: function(doc){
             const c = doc.getElementById("pdfTarget");
-            if (c) {
-              c.classList.add("pdf-render");
-              c.style.width = CAP_W + "px";
-              c.style.minWidth = CAP_W + "px";
-              c.style.maxWidth = "none";
-              c.style.margin = "0";
-            }
-            if (doc.body) {
-              doc.body.style.margin = "0";
-              doc.body.style.padding = "0";
-              doc.body.style.background = "#fff";
-            }
+            if (c) c.classList.add("pdf-render");
+            if (doc.body) doc.body.classList.add("pdf-capturing");
           }
         },
         jsPDF: { unit: "in", format: "letter", orientation: "portrait" },
