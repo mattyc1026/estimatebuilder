@@ -2873,6 +2873,29 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
   body{background:#fff;padding:0}
   .pdf-toolbar,.pdf-hint{display:none!important}
 }
+/* ===== Popup-only overrides. These MUST come last so they beat the app
+   stylesheet copied in above. Two rules in that stylesheet were written for
+   the app's own DOM and are actively harmful here:
+     1. .est-doc.pdf-render * { max-width:100% } also hits .est-logo, which
+        has max-width:170px. During capture the logo therefore expanded to
+        the full 720px column width, which is why it filled half the first
+        page of the PDF.
+     2. #pdfStage / body.pdf-capturing force an absolutely positioned,
+        clip-path'd, 720px-wide box. In the app that is deliberate. In this
+        popup it left html2canvas measuring a box whose origin did not match
+        the element it was rendering, so the canvas started partway into the
+        document and the Description column plus the left edge of every
+        paragraph fell off the sheet.
+   The capture no longer uses an offscreen stage at all, so #pdfStage is
+   neutralised outright and the body is left at its natural width. ===== */
+#pdfStage{display:none!important}
+body.pdf-capturing{width:auto!important;min-width:0!important;
+  padding:0!important;margin:0!important;background:#fff!important}
+body.pdf-capturing .pdf-toolbar,
+body.pdf-capturing .pdf-hint{display:none!important}
+.est-doc.pdf-render .est-logo{max-width:170px!important;width:100%!important;
+  height:auto!important;display:block;margin:0 auto 8px}
+.est-doc.pdf-render .sig-img{max-width:none!important;height:46px!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
 </head><body>
@@ -2902,25 +2925,25 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
       // temporal dead zone at that point, so every click threw a
       // ReferenceError and no PDF was ever produced.
       const CAP_W = 720;
-      // Capture from a dedicated offscreen copy that is laid out at a fixed
-      // 720px, instead of from the on-screen document. The on-screen document
-      // is only ever as wide as the browser window, so on a phone it was being
-      // laid out at ~390px and everything past that width, the Subtotal
-      // column and the right-hand side of the paragraphs, fell outside the
-      // captured canvas. A detached stage has no such dependency.
-      const stage = document.createElement("div");
-      stage.id = "pdfStage";
-      stage.style.cssText = "position:absolute;left:0;top:0;z-index:-1;" +
-                            "width:" + CAP_W + "px;background:#fff;";
-      const cap = el.cloneNode(true);
-      cap.id = "pdfTarget_capture";
+      // Capture the live document element, not a detached clone on an
+      // offscreen stage. The stage was introduced to stop a narrow phone
+      // window reshaping the layout mid-render, but .pdf-render already pins
+      // the element to 720px on its own, and an absolutely positioned,
+      // clip-path'd, negative-z-index container gave html2canvas a bounding
+      // box that did not line up with what it was drawing. That mismatch is
+      // what shifted the whole document left and sliced the Description
+      // column off the sheet. An element sitting in normal flow measures
+      // correctly, and overflowing a phone viewport horizontally is fine
+      // because we scroll to the origin first.
+      const cap = el;
+      const prevScrollX = window.scrollX, prevScrollY = window.scrollY;
+      window.scrollTo(0, 0);
       cap.classList.add("pdf-render");
-      stage.appendChild(cap);
-      document.body.appendChild(stage);
       document.body.classList.add("pdf-capturing");
       const done = function(){
-        if (stage.parentNode) stage.parentNode.removeChild(stage);
+        cap.classList.remove("pdf-render");
         document.body.classList.remove("pdf-capturing");
+        window.scrollTo(prevScrollX, prevScrollY);
         btn.disabled = false;
         btn.textContent = original;
       };
@@ -2940,17 +2963,22 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
           windowWidth: CAP_W,
           // Re-assert the capture width inside html2canvas's cloned document,
           // so a narrow phone viewport can't reshape the layout mid-render.
+          // Only the document element is pinned. Forcing the cloned body to
+          // 720px as well is what previously made the canvas wider than the
+          // content and squeezed everything into the left of the page.
           onclone: function(doc){
-            const c = doc.getElementById("pdfTarget_capture");
+            const c = doc.getElementById("pdfTarget");
             if (c) {
+              c.classList.add("pdf-render");
               c.style.width = CAP_W + "px";
               c.style.minWidth = CAP_W + "px";
               c.style.maxWidth = "none";
+              c.style.margin = "0";
             }
             if (doc.body) {
-              doc.body.style.width = CAP_W + "px";
-              doc.body.style.minWidth = CAP_W + "px";
               doc.body.style.margin = "0";
+              doc.body.style.padding = "0";
+              doc.body.style.background = "#fff";
             }
           }
         },
