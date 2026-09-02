@@ -2890,6 +2890,18 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
       const original = btn.textContent;
       btn.textContent = "Preparing PDF...";
       const el = document.getElementById("pdfTarget");
+      // The printable area of a letter page at 0.5in margins is 7.5in, which
+      // is 720px at the 96dpi html2canvas assumes. Pin the capture to that
+      // fixed number rather than measuring the live element: on a phone the
+      // measured value follows the browser window, and html2canvas was then
+      // cropping the canvas to that narrower box, which is what sliced the
+      // Subtotal column, the estimate total and the right edge of the
+      // paragraphs off the finished PDF.
+      // NOTE: this must be declared before the offscreen stage below, which
+      // reads it. It used to sit further down and the const was still in its
+      // temporal dead zone at that point, so every click threw a
+      // ReferenceError and no PDF was ever produced.
+      const CAP_W = 720;
       // Capture from a dedicated offscreen copy that is laid out at a fixed
       // 720px, instead of from the on-screen document. The on-screen document
       // is only ever as wide as the browser window, so on a phone it was being
@@ -2906,14 +2918,6 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
       stage.appendChild(cap);
       document.body.appendChild(stage);
       document.body.classList.add("pdf-capturing");
-      // The printable area of a letter page at 0.5in margins is 7.5in, which
-      // is 720px at the 96dpi html2canvas assumes. Pin the capture to that
-      // fixed number rather than measuring the live element: on a phone the
-      // measured value follows the browser window, and html2canvas was then
-      // cropping the canvas to that narrower box, which is what sliced the
-      // Subtotal column, the estimate total and the right edge of the
-      // paragraphs off the finished PDF.
-      const CAP_W = 720;
       const done = function(){
         if (stage.parentNode) stage.parentNode.removeChild(stage);
         document.body.classList.remove("pdf-capturing");
@@ -2957,10 +2961,18 @@ body{margin:0;padding:0 0 40px;background:#e9edf3}
                   ".inv-totals", ".inv-totals-row", "tr"]
         }
       };
-      html2pdf().set(opt).from(cap).save().then(done).catch(function(){
+      const fail = function(err){
         done();
+        console.error("PDF generation failed:", err);
         alert("PDF generation failed. You can still use your browser's Print > Save as PDF option.");
-      });
+      };
+      try {
+        html2pdf().set(opt).from(cap).save().then(done).catch(fail);
+      } catch (err) {
+        // Without this, anything that throws synchronously leaves the button
+        // permanently disabled reading "Preparing PDF..." with no explanation.
+        fail(err);
+      }
     });
   <\/script>
 </body></html>`;
