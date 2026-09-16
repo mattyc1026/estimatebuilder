@@ -651,7 +651,7 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
     margin-bottom: 30px;
   }
 .inv-logo-img {
-    max-width: 130px;
+    max-width: 170px;
     height: auto;
     margin: 0 auto 4px;
     display: block;
@@ -2895,6 +2895,15 @@ body.pdf-capturing .pdf-toolbar,
 body.pdf-capturing .pdf-hint{display:none!important}
 .est-doc.pdf-render .est-logo{max-width:170px!important;width:100%!important;
   height:auto!important;display:block;margin:0 auto 8px}
+/* Invoice logo: same problem as .est-logo above. The blanket max-width:100%
+   rule let it grow to its full 500px size, filling half the first page. */
+.est-doc.pdf-render .inv-logo-img{max-width:170px!important;width:170px!important;
+  height:auto!important;display:block;margin:0 auto 4px}
+/* Keep content off the very edge of the capture area. Text sitting flush
+   against the 720px boundary was being clipped on the right in the PDF
+   (invoice number, date, due, totals). The capture box stays 720px wide;
+   this just insets the content inside it. */
+.est-doc.pdf-render{padding:0 28px!important;box-sizing:border-box!important}
 .est-doc.pdf-render .sig-img{max-width:none!important;height:46px!important}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
@@ -2988,7 +2997,13 @@ body.pdf-capturing .pdf-hint{display:none!important}
         alert("PDF generation failed. You can still use your browser's Print > Save as PDF option.");
       };
       try {
-        html2pdf().set(opt).from(cap).save().then(done).catch(fail);
+        // Wait for the web fonts to finish loading so text is measured and
+        // drawn in the same font, otherwise right-aligned text can spill
+        // past the edge of the page.
+        const fontsReady = (document.fonts && document.fonts.ready) ? document.fonts.ready : Promise.resolve();
+        fontsReady.then(function(){
+          return html2pdf().set(opt).from(cap).save();
+        }).then(done).catch(fail);
       } catch (err) {
         // Without this, anything that throws synchronously leaves the button
         // permanently disabled reading "Preparing PDF..." with no explanation.
