@@ -289,6 +289,14 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
 #invoiceTab .card{background:var(--white);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:16px;padding:16px}
 #invoiceTab h2{font-family:'DM Serif Display',serif;font-size:1.05rem;color:var(--navy);letter-spacing:0;text-transform:none;margin-bottom:12px;border-bottom:2px solid var(--sky);padding-bottom:8px}
 #invoiceTab .actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.btn-row .btn-gen{grid-column:auto}
+.btn-draft{background:#eaf6f0;color:#1f7a55;border:1.5px solid #9fd4bb}
+.btn-draft:active{background:#d5eee2}
+.btn-draft.done{background:var(--green);color:#fff;border-color:var(--green)}
+.draft-card{border-left:4px solid var(--green)}
+.draft-card .card-head small,#invDraftCount{font-family:'DM Sans',sans-serif;font-size:.72rem;color:var(--muted);font-weight:600;margin-left:4px}
+.draft-card .hist-card.selected{border-color:var(--green);background:#f0faf5}
+.draft-live{display:inline-block;font-size:.62rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#1f7a55;background:#dff3ea;border-radius:999px;padding:2px 7px;margin-left:6px;vertical-align:2px}
 .co-hist-card{cursor:pointer}
 .co-hist-card.selected{border-color:var(--blue);background:#eef4fd}
 .hist-view-btn{background:none;border:1.5px solid var(--blue);color:var(--blue);border-radius:6px;font-size:.68rem;font-weight:700;padding:5px 9px;cursor:pointer;white-space:nowrap;margin-left:8px}
@@ -638,6 +646,13 @@ body{font-family:'DM Sans',sans-serif;background:var(--gray);color:var(--text);m
     transition: all .2s;
   }
 #invoiceTab .btn-secondary:hover { background: var(--inv-light); }
+#invoiceTab .btn-secondary.btn-draft { background: #eaf6f0; color: #1f7a55; border-color: #9fd4bb; }
+#invoiceTab .btn-secondary.btn-draft.done { background: var(--green); color: #fff; border-color: var(--green); }
+@media (max-width: 560px) {
+  #invoiceTab .actions { flex-wrap: wrap; }
+  #invoiceTab .actions .btn-secondary { flex: 1; }
+  #invoiceTab .actions .btn-primary { flex: 1 1 100%; }
+}
 #invoice {
     max-width: 680px;
     margin: 0 auto;
@@ -964,6 +979,11 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
 <div id="estimateTab" class="tabpanel active">
 <div class="wrap">
 
+  <div class="card draft-card" id="estDraftCard" style="display:none">
+    <div class="card-head">Drafts <small id="estDraftCount"></small></div>
+    <div class="card-body"><div id="estDraftList"></div></div>
+  </div>
+
   <!-- Select from History (collapsed by default) -->
   <div class="card">
     <button type="button" class="hist-disclosure" id="estHistToggle" aria-expanded="false"
@@ -1049,6 +1069,7 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
   <div class="btn-row">
     <button class="btn btn-calc" onclick="recalc()">Recalculate</button>
     <button class="btn btn-clr" onclick="clearAll()">Clear All</button>
+    <button class="btn btn-draft" id="estDraftBtn" onclick="saveDraft('estimate')">Save Draft</button>
     <button class="btn btn-gen btn-gen" onclick="showEstimate()">Generate Estimate</button>
   </div>
 
@@ -1057,6 +1078,11 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
 
 <div id="changeOrderTab" class="tabpanel">
 <div class="wrap">
+
+  <div class="card draft-card" id="coDraftCard" style="display:none">
+    <div class="card-head">Drafts <small id="coDraftCount"></small></div>
+    <div class="card-body"><div id="coDraftList"></div></div>
+  </div>
 
   <!-- Select from History -->
   <div class="card">
@@ -1140,6 +1166,7 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
   <div class="btn-row">
     <button class="btn btn-calc" onclick="coRecalc()">Recalculate</button>
     <button class="btn btn-clr" onclick="coClearAll()">Clear Change Order</button>
+    <button class="btn btn-draft" id="coDraftBtn" onclick="saveDraft('changeorder')">Save Draft</button>
     <button class="btn btn-gen btn-gen" onclick="showChangeOrder()">Generate Change Order</button>
   </div>
 
@@ -1148,6 +1175,11 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
 
 <div id="invoiceTab" class="tabpanel">
 <div class="inv-wrap">
+
+  <div class="card draft-card" id="invDraftCard" style="display:none">
+    <h2>Drafts <small id="invDraftCount"></small></h2>
+    <div id="invDraftList"></div>
+  </div>
 
   <div class="card">
     <h2>Select an Estimate <small id="invHistCount">0 saved</small></h2>
@@ -1322,6 +1354,7 @@ body.pdf-capturing .pdf-toolbar,body.pdf-capturing .pdf-hint{display:none!import
 
   <div class="actions">
     <button class="btn-secondary" onclick="inv_clearAll()">Clear All</button>
+    <button class="btn-secondary btn-draft" id="invDraftBtn" onclick="saveDraft('invoice')">Save Draft</button>
     <button class="btn-primary" onclick="inv_generateInvoice()">Generate Invoice</button>
   </div>
 </div>
@@ -1468,6 +1501,7 @@ function clearAllSilent() {
   customCount=0;
   localStorage.removeItem("gnh_estimate");
   currentEstDocId = null;
+  if (typeof draftDetach === "function") draftDetach("estimate");
   if (typeof selectedEstHistId !== "undefined") {
     selectedEstHistId = null;
     if (typeof renderEstimateHistory === "function") renderEstimateHistory();
@@ -1491,33 +1525,38 @@ let saveTimer=null;
 // Firestore id of the saved estimate currently open in the Estimate tab, so
 // pressing Generate again updates that record instead of adding a duplicate.
 let currentEstDocId=null;
+function estState() {
+  const state={
+    docId:currentEstDocId,
+    job:{client:v("f_client"),date:v("f_date"),addr:v("f_addr"),city:v("f_city"),state:v("f_state"),
+         zip:v("f_zip"),phone:v("f_phone"),email:v("f_email"),
+         duration:v("f_duration"),notes:v("f_notes"),
+         issues:v("f_issues"),exclusions:v("f_exclusions"),disclaimers:v("f_disclaimers"),
+         terms:v("f_terms")},
+    custom:[],
+  };
+  // Custom
+  document.querySelectorAll("[id^='crow_']").forEach(row=>{
+    const id=row.id.split("_")[1];
+    state.custom.push({
+      id,
+      desc:document.getElementById(`cdesc_${id}`)?.value||"",
+      qty:document.getElementById(`cqty_${id}`)?.value||1,
+      price:document.getElementById(`cprice_${id}`)?.value||0,
+      det:document.getElementById(`cdet_${id}`)?.value||"",
+      hide:document.getElementById(`chide_${id}`)?.checked||false,
+    });
+  });
+  return state;
+}
 function save() {
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{
     try {
-      const state={
-        docId:currentEstDocId,
-        job:{client:v("f_client"),date:v("f_date"),addr:v("f_addr"),city:v("f_city"),state:v("f_state"),
-             zip:v("f_zip"),phone:v("f_phone"),email:v("f_email"),
-             duration:v("f_duration"),notes:v("f_notes"),
-             issues:v("f_issues"),exclusions:v("f_exclusions"),disclaimers:v("f_disclaimers"),
-             terms:v("f_terms")},
-        custom:[],
-      };
-      // Custom
-      document.querySelectorAll("[id^='crow_']").forEach(row=>{
-        const id=row.id.split("_")[1];
-        state.custom.push({
-          id,
-          desc:document.getElementById(`cdesc_${id}`)?.value||"",
-          qty:document.getElementById(`cqty_${id}`)?.value||1,
-          price:document.getElementById(`cprice_${id}`)?.value||0,
-          det:document.getElementById(`cdet_${id}`)?.value||"",
-          hide:document.getElementById(`chide_${id}`)?.checked||false,
-        });
-      });
+      const state=estState();
       localStorage.setItem("gnh_estimate",JSON.stringify(state));
       setInd("Saved ✓");
+      if (typeof draftAutoSync === "function") draftAutoSync("estimate");
     } catch(e){ setInd("Save error"); }
   },600);
 }
@@ -2083,6 +2122,7 @@ function setHistSyncStatus(msg) {
 
 function saveEstimateToHistory(client, rawDate, formattedDate, cust, duration, lines, total, notes, extra) {
   if (!db) { setHistSyncStatus("Firebase isn't configured yet, so this estimate was NOT saved to shared history."); return; }
+  if (typeof draftFinish === "function") draftFinish("estimate");
   cust = cust || {};
   extra = extra || {};
   const entry = {
@@ -2605,6 +2645,7 @@ try {
 } catch (e) { console.error(e); }
 
 function saveChangeOrderToHistory(client, conum, codate, revisedTotal, netChange, docHtml, fileBase, cust, items, extra) {
+  if (typeof draftFinish === "function") draftFinish("changeorder");
   cust = cust || {};
   extra = extra || {};
   const addr = cust.addr || "";
@@ -2982,6 +3023,9 @@ function coRecalc() {
 // ══════════ CO CLEAR / DATE ══════════
 function coClearAll() {
   if (!confirm("Clear this change order? (Your saved estimate history will not be affected.)")) return;
+  coClearAllSilent();
+}
+function coClearAllSilent() {
   ["co_client","co_estdate","co_addr","co_city","co_state","co_zip","co_phone","co_email",
    "co_duration","co_notes","co_conum","co_issues","co_exclusions","co_disclaimers"].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = "";
@@ -2995,6 +3039,7 @@ function coClearAll() {
   renderHistory(); renderOrigItems(); renderAddedItems();
   setCoTodayDate();
   localStorage.removeItem("gnh_changeorder_draft");
+  if (typeof draftDetach === "function") draftDetach("changeorder");
   coRecalc();
 }
 
@@ -3018,7 +3063,13 @@ function coSave() {
   clearTimeout(coSaveTimer);
   coSaveTimer = setTimeout(() => {
     try {
-      const state = {
+      localStorage.setItem("gnh_changeorder_draft", JSON.stringify(coState()));
+      if (typeof draftAutoSync === "function") draftAutoSync("changeorder");
+    } catch (e) { /* best effort */ }
+  }, 600);
+}
+function coState() {
+      return {
         selectedHistId, selectedCoBaseId, currentCoDocId, coBase,
         job: { client: v("co_client"), estdate: v("co_estdate"), addr: v("co_addr"),
                city: v("co_city"), state: v("co_state"), zip: v("co_zip"),
@@ -3027,9 +3078,6 @@ function coSave() {
                issues: v("co_issues"), exclusions: v("co_exclusions"), disclaimers: v("co_disclaimers") },
         coOrigItems, coAddedItems, coIdSeq, coOriginalTotal
       };
-      localStorage.setItem("gnh_changeorder_draft", JSON.stringify(state));
-    } catch (e) { /* best effort */ }
-  }, 600);
 }
 function coLoadState() {
   try {
@@ -3554,6 +3602,7 @@ let currentInvDocId = null;
 
 function saveInvoiceToHistory(invoiceNum, docHtml) {
   if (!db) return;
+  if (typeof draftFinish === "function") draftFinish("invoice");
   const totals = inv_computeTotals();
   const entry = {
     client: document.getElementById("clientName").value || "(No client name)",
@@ -3608,7 +3657,10 @@ function inv_save() {
   if (inv_loading) return;
   clearTimeout(inv_saveTimer);
   inv_saveTimer = setTimeout(() => {
-    try { localStorage.setItem(INV_DRAFT_KEY, JSON.stringify(inv_snapshot())); }
+    try {
+      localStorage.setItem(INV_DRAFT_KEY, JSON.stringify(inv_snapshot()));
+      if (typeof draftAutoSync === "function") draftAutoSync("invoice");
+    }
     catch (e) { /* best effort */ }
   }, 600);
 }
@@ -4077,11 +4129,15 @@ function inv_generateInvoice() {
 
 function inv_clearAll() {
   if (!confirm('Clear all fields and start a new invoice?')) return;
+  inv_clearAllSilent();
+}
+function inv_clearAllSilent() {
   currentInvDocId = null;
   selectedInvEstId = null;
   selectedInvCoId = null;
   selectedInvHistId = null;
   try { localStorage.removeItem(INV_DRAFT_KEY); } catch (e) {}
+  if (typeof draftDetach === "function") draftDetach("invoice");
   ['clientName','clientAddress','clientCityOnly','clientState','clientZip','clientPhone','clientEmail','notes']
     .forEach(id => document.getElementById(id).value = '');
 
@@ -4116,6 +4172,246 @@ renderInvoiceHistory();
 // draft, so typing in Change Order or Invoice fields is saved too.
 document.addEventListener("input",()=>{ save(); coSave(); inv_save(); });
 document.addEventListener("change",()=>{ save(); coSave(); inv_save(); });
+
+// ══════════ CLOUD DRAFTS ══════════
+// Save Draft puts the work in progress in Firestore ("drafts"), shared with
+// every user, so it can be picked up on any device. Once a draft is open, every
+// change keeps that draft up to date. Generating the document removes it.
+const DRAFT_UI = {
+  estimate:    { list: "estDraftList", card: "estDraftCard", count: "estDraftCount", btn: "estDraftBtn" },
+  changeorder: { list: "coDraftList",  card: "coDraftCard",  count: "coDraftCount",  btn: "coDraftBtn" },
+  invoice:     { list: "invDraftList", card: "invDraftCard", count: "invDraftCount", btn: "invDraftBtn" }
+};
+let draftCache = [];
+let draftsLoaded = false;
+let draftIds = {};
+let draftSynced = {};
+let draftRev = {};
+let draftEditAt = {};
+try { draftIds = JSON.parse(localStorage.getItem("gnh_draft_ids") || "{}") || {}; } catch (e) { draftIds = {}; }
+function draftPersistIds() {
+  try { localStorage.setItem("gnh_draft_ids", JSON.stringify(draftIds)); } catch (e) {}
+}
+
+function draftState(type) {
+  if (type === "estimate") return estState();
+  if (type === "changeorder") return JSON.parse(JSON.stringify(coState()));
+  return inv_snapshot();
+}
+function draftSummary(type) {
+  if (type === "estimate") return { client: v("f_client"), number: "", total: getLines().total };
+  if (type === "changeorder") {
+    const total = coOrigItems.filter(i => i.status !== "removed").reduce((t, i) => t + (Number(i.sub) || 0), 0)
+                + coAddedItems.reduce((t, i) => t + (Number(i.sub) || 0), 0);
+    return { client: v("co_client"), number: v("co_conum"), total };
+  }
+  return { client: v("clientName"), number: v("invoiceNum"), total: inv_computeTotals().subtotal };
+}
+function draftHasContent(type) {
+  if (type === "estimate") return !!(v("f_client").trim() || getLines().lines.length);
+  if (type === "changeorder") return !!(v("co_client").trim() || coOrigItems.length || coAddedItems.some(i => (i.desc || "").trim()));
+  return !!(v("clientName").trim() || inv_items.some(i => String(i.desc || "").trim()));
+}
+function draftNewRev() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+
+function draftWrite(type, isNew) {
+  const stateStr = JSON.stringify(draftState(type));
+  const sum = draftSummary(type);
+  const rev = draftNewRev();
+  const who = currentUser ? currentUser.displayName : "";
+  const now = Date.now();
+  const data = {
+    type, client: (sum.client || "").trim(), number: sum.number || "", total: Number(sum.total) || 0,
+    state: stateStr, rev, updatedBy: who, updatedAtMs: now,
+    savedAt: firebase.firestore.FieldValue.serverTimestamp()
+  };
+  let ref;
+  if (isNew) {
+    ref = db.collection("drafts").doc();
+    data.createdBy = who; data.createdAtMs = now;
+    draftIds[type] = ref.id; draftPersistIds();
+  } else {
+    ref = db.collection("drafts").doc(draftIds[type]);
+  }
+  draftSynced[type] = stateStr;
+  draftRev[type] = rev;
+  renderDrafts();
+  return isNew ? ref.set(data) : ref.update(data);
+}
+
+function draftFlash(type, label, done) {
+  const b = document.getElementById(DRAFT_UI[type].btn);
+  if (!b) return;
+  clearTimeout(b._t);
+  b.textContent = label;
+  b.classList.toggle("done", !!done);
+  if (done) b._t = setTimeout(() => { b.textContent = "Save Draft"; b.classList.remove("done"); }, 2200);
+}
+
+function saveDraft(type) {
+  if (!db) { alert("Drafts can't be saved right now. Check your internet connection."); return; }
+  if (!draftHasContent(type)) { alert("There's nothing to save yet."); return; }
+  const known = draftIds[type] && (!draftsLoaded || draftCache.some(d => d.id === draftIds[type]));
+  draftFlash(type, "Saving…");
+  const fail = () => {
+    draftFlash(type, "Save Draft");
+    alert("Couldn't save the draft. Check your internet connection and try again.");
+  };
+  draftWrite(type, !known).then(() => {
+    draftFlash(type, "Draft Saved ✓", true);
+    setInd("Draft saved ✓");
+  }).catch(err => {
+    console.error("Draft save failed:", err);
+    if (known && err && err.code === "not-found") {
+      draftWrite(type, true).then(() => draftFlash(type, "Draft Saved ✓", true)).catch(fail);
+    } else fail();
+  });
+}
+
+// Called after every local auto-save. Only does anything when a draft is open.
+function draftAutoSync(type) {
+  const id = draftIds[type];
+  if (!id || !db) return;
+  if (draftsLoaded && !draftCache.some(d => d.id === id)) { draftDetach(type); return; }
+  let str;
+  try { str = JSON.stringify(draftState(type)); } catch (e) { return; }
+  if (str === draftSynced[type]) return;
+  draftEditAt[type] = Date.now();
+  draftWrite(type, false).then(() => setInd("Draft saved ✓")).catch(err => {
+    console.error("Draft sync failed:", err);
+    if (err && err.code === "not-found") draftDetach(type);
+    else setInd("Draft not synced, check your connection");
+  });
+}
+
+function draftDetach(type) {
+  if (!draftIds[type]) return;
+  draftIds[type] = null;
+  delete draftSynced[type]; delete draftRev[type]; delete draftEditAt[type];
+  draftPersistIds();
+  renderDrafts();
+}
+
+// The document was generated, so its draft is done.
+function draftFinish(type) {
+  const id = draftIds[type];
+  if (!id) return;
+  draftDetach(type);
+  if (db) db.collection("drafts").doc(id).delete().catch(err => console.error("Draft cleanup failed:", err));
+}
+
+function draftApply(type, d, fromElsewhere) {
+  let s;
+  try { s = JSON.parse(d.state); } catch (e) { alert("That draft couldn't be opened."); return; }
+  if (type === "estimate") {
+    clearAllSilent();
+    localStorage.setItem("gnh_estimate", d.state);
+    loadState();
+    recalc();
+    if (typeof renderEstimateHistory === "function") renderEstimateHistory();
+  } else if (type === "changeorder") {
+    coClearAllSilent();
+    localStorage.setItem("gnh_changeorder_draft", d.state);
+    coLoadState();
+    coRecalc();
+    renderHistory(); renderCoHistory();
+  } else {
+    inv_applyDraft(s);
+    try { localStorage.setItem(INV_DRAFT_KEY, d.state); } catch (e) {}
+    renderInvoiceEstimateHistory(); renderInvoiceCoHistory(); renderInvoiceHistory();
+  }
+  draftIds[type] = d.id;
+  draftPersistIds();
+  draftRev[type] = d.rev;
+  draftEditAt[type] = 0;
+  try { draftSynced[type] = JSON.stringify(draftState(type)); } catch (e) {}
+  refreshHeaderTotal();
+  renderDrafts();
+  setInd(fromElsewhere ? "Draft updated from another device" : "Draft opened");
+}
+
+function openDraft(id) {
+  const d = draftCache.find(x => x.id === id);
+  if (!d || !DRAFT_UI[d.type]) return;
+  const type = d.type;
+  if (draftIds[type] === id) return;
+  if (draftIds[type]) draftAutoSync(type);
+  else if (draftHasContent(type) && !confirm("Replace what's in the builder now with this draft?")) return;
+  draftApply(type, d, false);
+  const tab = document.getElementById(type === "estimate" ? "estimateTab" : type === "changeorder" ? "changeOrderTab" : "invoiceTab");
+  if (tab) window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function deleteDraft(id, evt) {
+  if (evt) evt.stopPropagation();
+  const d = draftCache.find(x => x.id === id);
+  if (!d || !db) return;
+  if (!confirm("Delete the draft for " + (d.client || "(No client name)") + "? This can't be undone.")) return;
+  if (draftIds[d.type] === id) draftDetach(d.type);
+  db.collection("drafts").doc(id).delete().catch(err => {
+    console.error("Draft delete failed:", err);
+    alert("Couldn't delete that draft.");
+  });
+}
+
+function draftWhen(ms) {
+  if (!ms) return "";
+  const d = new Date(ms), now = new Date();
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+  const day0 = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day0(now) - day0(d)) / 86400000);
+  if (diff === 0) return "Today " + time;
+  if (diff === 1) return "Yesterday " + time;
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: d.getFullYear() === now.getFullYear() ? undefined : "numeric" }) + ", " + time;
+}
+
+function renderDrafts() {
+  Object.keys(DRAFT_UI).forEach(type => {
+    const ui = DRAFT_UI[type];
+    const card = document.getElementById(ui.card), list = document.getElementById(ui.list);
+    if (!card || !list) return;
+    const items = draftCache.filter(d => d.type === type);
+    card.style.display = items.length ? "" : "none";
+    const cnt = document.getElementById(ui.count);
+    if (cnt) cnt.textContent = items.length + (items.length === 1 ? " draft" : " drafts");
+    list.innerHTML = items.map(d => {
+      const open = draftIds[type] === d.id;
+      return `<div class="hist-card ${open ? "selected" : ""}" onclick="openDraft('${d.id}')">
+        <div class="hist-main">
+          <div class="hist-client">${coEsc(d.client || "(No client name)")}${open ? `<span class="draft-live">Open</span>` : ""}</div>
+          <div class="hist-meta">${d.number ? coEsc(d.number) + " · " : ""}${draftWhen(d.updatedAtMs)}${d.updatedBy ? " · " + coEsc(d.updatedBy) : ""}</div>
+        </div>
+        <div class="hist-total">${fmtMoney(d.total || 0)}</div>
+        <button class="hist-del-btn" onclick="deleteDraft('${d.id}', event)">Delete</button>
+      </div>`;
+    }).join("");
+  });
+}
+
+try {
+  if (db) {
+    db.collection("drafts").orderBy("updatedAtMs", "desc").limit(200)
+      .onSnapshot(
+        snapshot => {
+          draftCache = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+          draftsLoaded = true;
+          Object.keys(DRAFT_UI).forEach(type => {
+            const id = draftIds[type];
+            if (!id) return;
+            const d = draftCache.find(x => x.id === id);
+            if (!d) { if (!snapshot.metadata.fromCache) draftDetach(type); return; }
+            // Changed on another device: bring it in unless someone is typing here.
+            if (d.rev && d.rev !== draftRev[type] && !snapshot.metadata.hasPendingWrites &&
+                Date.now() - (draftEditAt[type] || 0) > 8000) {
+              draftApply(type, d, draftRev[type] !== undefined);
+            }
+          });
+          renderDrafts();
+        },
+        err => console.error("Draft sync error:", err)
+      );
+  }
+} catch (e) { console.error(e); }
 </script>
 </body>
 </html>
