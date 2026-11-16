@@ -2047,6 +2047,7 @@ async function moveOldBuilderData() {
   const progress = m.progress || {};
   let count = m.movedCount || 0;
   const byId = firebase.firestore.FieldPath.documentId();
+  const skipped = [];
   moveCover("Moving saved documents", count ? count + " moved" : "Starting");
   try {
     for (const n of names) {
@@ -2055,7 +2056,14 @@ async function moveOldBuilderData() {
       for (;;) {
         let q = oldDb.collection(n).orderBy(byId).limit(6);
         if (last) q = q.startAfter(last);
-        const page = await q.get();
+        let page;
+        try { page = await q.get(); }
+        catch (e) {
+          // The old database never allowed this section (drafts were added
+          // after its rules were written), so there is nothing in it to move.
+          if (e && e.code === "permission-denied") { skipped.push(n); break; }
+          throw e;
+        }
         if (!page.docs.length) break;
         await Promise.all(page.docs.map(d => bcol(n).doc(d.id).set(d.data())));
         last = page.docs[page.docs.length - 1].id;
@@ -2066,7 +2074,7 @@ async function moveOldBuilderData() {
       }
       progress[n] = "__done";
     }
-    await marker.set({ movedAll: true, migratedAt: Date.now(), moved: count, progress, by: currentUser ? currentUser.username : "" }, { merge: true });
+    await marker.set({ movedAll: true, migratedAt: Date.now(), moved: count, progress, skipped, by: currentUser ? currentUser.username : "" }, { merge: true });
     moveCover("");
   } catch (e) {
     console.error("Move failed:", e);
