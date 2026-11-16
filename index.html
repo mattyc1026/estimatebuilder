@@ -1806,6 +1806,19 @@ window.addEventListener("message", (e) => {
   const data = e.data;
   if (!data || data.source !== "gh_portal") return;
 
+  // Opened from the portal in a browser that has never been set up: the
+  // portal hands over its connection details so the same login works here.
+  if (data.type === "sync_cfg") {
+    if (e.origin !== location.origin) return;
+    try {
+      if (!localStorage.getItem("gh_portal_sync_cfg") && data.cfg && data.cfg.apiKey && data.cfg.projectId) {
+        localStorage.setItem("gh_portal_sync_cfg", JSON.stringify(data.cfg));
+        location.reload();
+      }
+    } catch (err) {}
+    return;
+  }
+
   // The portal sends this right before presite_data, so the builder always
   // starts blank for the newly-opened work order instead of showing
   // whatever was left over from the previous job.
