@@ -2029,37 +2029,51 @@ function moveCover(text, sub) {
   c.innerHTML = `<div class="move-box">${text}<small>${sub || ""}</small></div>`;
 }
 // One-time copy of every saved estimate, change order, invoice and draft.
-// Safe to run twice: each document keeps its id, so a repeat just rewrites it.
+// Done a few documents at a time so progress shows and a dropped connection
+// picks up where it left off. Each document keeps its id, so repeating a step
+// only rewrites the same thing.
 async function moveOldBuilderData() {
   const marker = db.collection("gh_portal").doc("builder");
   const snap = await marker.get();
-  if (snap.exists && snap.data().migratedAt) return;
+  const m = snap.exists ? (snap.data() || {}) : {};
+  if (m.movedAll || (m.migratedAt && m.moved > 0 && !m.note)) return;
   let oldDb;
   try {
     const app = firebase.apps.find(a => a.name === "old") || firebase.initializeApp(OLD_BUILDER_CONFIG, "old");
     oldDb = app.firestore();
   } catch (e) { console.error(e); return; }
   const names = ["estimates", "changeOrders", "invoices", "drafts"];
-  let done = 0, total = 0;
+  const labels = { estimates: "estimates", changeOrders: "change orders", invoices: "invoices", drafts: "drafts" };
+  const progress = m.progress || {};
+  let count = m.movedCount || 0;
+  const byId = firebase.firestore.FieldPath.documentId();
+  moveCover("Moving saved documents", count ? count + " moved" : "Starting");
   try {
-    const sets = [];
-    for (const n of names) { const q = await oldDb.collection(n).get(); sets.push([n, q.docs]); total += q.docs.length; }
-    if (total) moveCover("Moving saved documents", "0 of " + total);
-    for (const [n, docs] of sets) {
-      for (let i = 0; i < docs.length; i += 8) {
-        await Promise.all(docs.slice(i, i + 8).map(d => bcol(n).doc(d.id).set(d.data())));
-        done = Math.min(total, done + 8);
-        moveCover("Moving saved documents", done + " of " + total);
+    for (const n of names) {
+      if (progress[n] === "__done") continue;
+      let last = progress[n] || null;
+      for (;;) {
+        let q = oldDb.collection(n).orderBy(byId).limit(6);
+        if (last) q = q.startAfter(last);
+        const page = await q.get();
+        if (!page.docs.length) break;
+        await Promise.all(page.docs.map(d => bcol(n).doc(d.id).set(d.data())));
+        last = page.docs[page.docs.length - 1].id;
+        count += page.docs.length;
+        progress[n] = last;
+        await marker.set({ progress, movedCount: count }, { merge: true });
+        moveCover("Moving saved documents", count + " moved, now on " + labels[n]);
       }
+      progress[n] = "__done";
     }
-    await marker.set({ migratedAt: Date.now(), by: currentUser ? currentUser.username : "", moved: total }, { merge: true });
+    await marker.set({ movedAll: true, migratedAt: Date.now(), moved: count, progress, by: currentUser ? currentUser.username : "" }, { merge: true });
+    moveCover("");
   } catch (e) {
     console.error("Move failed:", e);
-    // The old database is closed once everything has moved; nothing left to copy.
-    if (e && e.code === "permission-denied" && done === 0) {
-      try { await marker.set({ migratedAt: Date.now(), note: "source closed" }, { merge: true }); } catch (_) {}
-    }
-  } finally { moveCover(""); }
+    const why = (e && (e.code || e.message)) || "unknown";
+    const c = document.getElementById("moveCover");
+    if (c) c.innerHTML = `<div class="move-box">Saved documents could not be moved<small>${count} moved so far. Nothing was lost. (${String(why).replace(/[<>&]/g, "")})</small><button class="auth-btn" style="margin-top:14px" onclick="document.getElementById('moveCover').remove()">Close</button></div>`;
+  }
 }
 function startBuilder(user) {
   db.collection("gh_portal").doc("main").get().then(async snap => {
