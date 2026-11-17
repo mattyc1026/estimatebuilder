@@ -1698,6 +1698,8 @@ function sv(id,val){const el=document.getElementById(id);if(el&&val!==undefined&
 function showEstimate(){
   const {lines,total}=getLines();
   if(!lines.length){alert("No items added.");return;}
+  // Every copy is dated the day it is generated.
+  setTodayDate(); save();
   const cust=readClient("f_");
   const client=cust.name,date=fmtDate(v("f_date")),
         duration=v("f_duration"),notes=v("f_notes");
@@ -3156,6 +3158,8 @@ function showChangeOrder() {
   const added = coAddedItems.filter(i => (i.desc || "").trim());
 
   if (!coOrigItems.length) { alert("Select a saved estimate above first."); return; }
+  // Every copy is dated the day it is generated.
+  setCoTodayDate(); coSave();
   if (!removed.length && !modified.length && !added.length) {
     alert("No changes have been made yet. Modify, remove, or add at least one line item before generating a change order.");
     return;
@@ -4145,6 +4149,9 @@ function inv_buildInvoiceHTML() {
 }
 
 function inv_generateInvoice() {
+  // Every copy is dated the day it is generated.
+  document.getElementById('invoiceDate').value = inv_localISODate(new Date());
+  inv_save();
   // A new invoice never reuses a number that's already been saved.
   if (!currentInvDocId) {
     const numEl = document.getElementById('invoiceNum');
